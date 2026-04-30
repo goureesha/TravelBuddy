@@ -40,12 +40,15 @@ class LocationService {
   static Future<Position?> getCurrentPosition() async {
     try {
       final hasPermission = await requestPermission();
-      if (!hasPermission) return null;
+      if (!hasPermission) {
+        debugPrint('Location permission denied');
+        return null;
+      }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
+          timeLimit: Duration(seconds: kIsWeb ? 30 : 15),
         ),
       );
       lastPosition = position;

@@ -36,6 +36,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         _myLocation = LatLng(pos.latitude, pos.longitude);
       });
       _mapController.move(_myLocation!, 14);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Allow location access to see your position on the map'),
+          duration: Duration(seconds: 4),
+        ),
+      );
     }
   }
 
