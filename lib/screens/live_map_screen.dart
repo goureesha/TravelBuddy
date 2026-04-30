@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/location_service.dart';
 import '../services/team_service.dart';
 import '../services/poi_service.dart';
+import '../services/route_service.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -24,6 +25,20 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   bool _followMe = true;
   LatLng? _myLocation;
   double _accuracy = 0; // meters
+
+  // Route planning
+  List<LatLng> _routePolyline = [];
+  List<Map<String, dynamic>> _routeWaypoints = []; // {name, lat, lng}
+  double _routeDistKm = 0;
+  double _routeDurMin = 0;
+  bool _showRoutePanel = false;
+
+  // Member colors
+  static const List<Color> _memberColors = [
+    Color(0xFF1A73E8), Color(0xFF00BFA5), Color(0xFFFF6D00),
+    Color(0xFF9C27B0), Color(0xFFE91E63), Color(0xFFFFEB3B),
+    Color(0xFF00E5FF), Color(0xFF76FF03),
+  ];
 
   @override
   void initState() {
@@ -288,6 +303,97 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   // ════════════════════════════════════
+  // ROUTE PLANNING
+  // ════════════════════════════════════
+  Future<void> _fetchRoute() async {
+    if (_routeWaypoints.length < 2) return;
+    final points = _routeWaypoints.map((w) => LatLng(w['lat'], w['lng'])).toList();
+    final polyline = await RouteService.getDirections(points);
+    final info = await RouteService.getRouteInfo(points);
+    if (mounted) {
+      setState(() {
+        _routePolyline = polyline;
+        _routeDistKm = info['distance'] ?? 0;
+        _routeDurMin = info['duration'] ?? 0;
+      });
+    }
+  }
+
+  void _addWaypoint(String name, double lat, double lng) {
+    setState(() {
+      _routeWaypoints.add({'name': name, 'lat': lat, 'lng': lng});
+    });
+    _fetchRoute();
+  }
+
+  void _removeWaypoint(int index) {
+    setState(() { _routeWaypoints.removeAt(index); });
+    if (_routeWaypoints.length >= 2) { _fetchRoute(); }
+    else { setState(() { _routePolyline = []; _routeDistKm = 0; _routeDurMin = 0; }); }
+  }
+
+  void _clearRoute() {
+    setState(() {
+      _routeWaypoints.clear(); _routePolyline = [];
+      _routeDistKm = 0; _routeDurMin = 0; _showRoutePanel = false;
+    });
+  }
+
+  void _showAddWaypointDialog({String label = 'Add Stop'}) {
+    final nameCtrl = TextEditingController();
+    final latCtrl = TextEditingController(text: _myLocation?.latitude.toStringAsFixed(6) ?? '');
+    final lngCtrl = TextEditingController(text: _myLocation?.longitude.toStringAsFixed(6) ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2128),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(label, style: GoogleFonts.inter(color: Colors.white)),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: nameCtrl, style: GoogleFonts.inter(color: Colors.white),
+            decoration: InputDecoration(labelText: 'Place name', labelStyle: GoogleFonts.inter(color: Colors.white38),
+              filled: true, fillColor: Colors.white.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: TextField(controller: latCtrl, keyboardType: TextInputType.number,
+              style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(labelText: 'Lat', labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                filled: true, fillColor: Colors.white.withOpacity(0.06),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
+            const SizedBox(width: 8),
+            Expanded(child: TextField(controller: lngCtrl, keyboardType: TextInputType.number,
+              style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(labelText: 'Lng', labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                filled: true, fillColor: Colors.white.withOpacity(0.06),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
+          ]),
+          const SizedBox(height: 8),
+          Align(alignment: Alignment.centerLeft,
+            child: TextButton.icon(icon: const Icon(Icons.my_location, size: 16, color: Color(0xFF00BFA5)),
+              label: Text('Use my location', style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 12)),
+              onPressed: () { if (_myLocation != null) { latCtrl.text = _myLocation!.latitude.toStringAsFixed(6); lngCtrl.text = _myLocation!.longitude.toStringAsFixed(6); } })),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              final lat = double.tryParse(latCtrl.text); final lng = double.tryParse(lngCtrl.text);
+              if (lat == null || lng == null) return;
+              _addWaypoint(nameCtrl.text.isEmpty ? 'Stop ${_routeWaypoints.length + 1}' : nameCtrl.text, lat, lng);
+              Navigator.pop(ctx);
+            },
+            child: Text('Add', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+  }
+
+  Color _colorForMember(int index) => _memberColors[index % _memberColors.length];
+
+  // ════════════════════════════════════
   // BUILD
   // ════════════════════════════════════
   @override
@@ -314,14 +420,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 userAgentPackageName: 'com.travelbuddy.travel_buddy',
               ),
 
-              // Team member markers
+              // Team member markers (colored per member)
               if (_activeTeamId != null)
                 StreamBuilder<QuerySnapshot>(
                   stream: LocationService.getTeamLocations(_activeTeamId!),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const MarkerLayer(markers: []);
-
-                    final markers = snapshot.data!.docs.map((doc) {
+                    final docs = snapshot.data!.docs;
+                    final markers = <Marker>[];
+                    for (int i = 0; i < docs.length; i++) {
+                      final doc = docs[i];
                       final data = doc.data() as Map<String, dynamic>;
                       final lat = (data['lat'] as num?)?.toDouble() ?? 0;
                       final lng = (data['lng'] as num?)?.toDouble() ?? 0;
@@ -329,8 +437,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                       final userName = data['userName'] as String? ?? '?';
                       final userPhoto = data['userPhoto'] as String? ?? '';
                       final isMe = doc.id == currentUid;
+                      final color = _colorForMember(i);
 
-                      // Update my location for follow mode
                       if (isMe && _followMe) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) {
@@ -340,19 +448,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         });
                       }
 
-                      return Marker(
+                      markers.add(Marker(
                         point: LatLng(lat, lng),
-                        width: 120,
-                        height: 70,
-                        child: _memberMarker(
-                          name: userName,
-                          photo: userPhoto,
-                          speed: speedKmh,
-                          isMe: isMe,
-                        ),
-                      );
-                    }).toList();
-
+                        width: 120, height: 70,
+                        child: _memberMarker(name: userName, photo: userPhoto, speed: speedKmh, isMe: isMe, color: color),
+                      ));
+                    }
                     return MarkerLayer(markers: markers);
                   },
                 ),
@@ -437,6 +538,28 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     return MarkerLayer(markers: poiMarkers);
                   },
                 ),
+
+              // ── ROUTE POLYLINE ──
+              if (_routePolyline.isNotEmpty)
+                PolylineLayer(polylines: [
+                  Polyline(points: _routePolyline, strokeWidth: 4, color: const Color(0xFF1A73E8)),
+                ]),
+
+              // ── WAYPOINT MARKERS ──
+              if (_routeWaypoints.isNotEmpty)
+                MarkerLayer(markers: _routeWaypoints.asMap().entries.map((e) {
+                  final i = e.key; final w = e.value;
+                  final isStart = i == 0; final isEnd = i == _routeWaypoints.length - 1;
+                  final markerColor = isStart ? const Color(0xFF00BFA5) : isEnd ? Colors.redAccent : const Color(0xFFFF6D00);
+                  return Marker(point: LatLng(w['lat'], w['lng']), width: 90, height: 50,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(
+                        color: markerColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                        child: Icon(isStart ? Icons.play_arrow : isEnd ? Icons.flag : Icons.circle, color: Colors.white, size: 14)),
+                      Text(w['name'] ?? '', style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis),
+                    ]));
+                }).toList()),
             ],
           ),
 
@@ -579,6 +702,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     color: const Color(0xFFFF6D00),
                     onTap: () => _showAddPoiDialog(),
                   ),
+                const SizedBox(width: 8),
+                // Plan Tour button
+                _mapButton(
+                  icon: Icons.route_rounded,
+                  color: _showRoutePanel ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.54),
+                  onTap: () => setState(() => _showRoutePanel = !_showRoutePanel),
+                ),
                 const Spacer(),
                 // Zoom controls
                 Column(
@@ -603,6 +733,81 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               ],
             ),
           ),
+
+          // ── ROUTE PLANNING PANEL ──
+          if (_showRoutePanel)
+            Positioned(
+              top: 80, left: 12, right: 12,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161B22).withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Row(children: [
+                    const Icon(Icons.route_rounded, color: Color(0xFF00BFA5), size: 20),
+                    const SizedBox(width: 8),
+                    Text('Plan Tour', style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    if (_routeWaypoints.isNotEmpty)
+                      GestureDetector(onTap: _clearRoute, child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20)),
+                    const SizedBox(width: 8),
+                    GestureDetector(onTap: () => setState(() => _showRoutePanel = false),
+                      child: const Icon(Icons.close, color: Colors.white38, size: 20)),
+                  ]),
+                  const SizedBox(height: 10),
+                  ..._routeWaypoints.asMap().entries.map((e) {
+                    final i = e.key; final w = e.value;
+                    final isStart = i == 0; final isEnd = i == _routeWaypoints.length - 1;
+                    return Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [
+                      Icon(isStart ? Icons.play_circle : isEnd ? Icons.flag_circle : Icons.circle,
+                        color: isStart ? const Color(0xFF00BFA5) : isEnd ? Colors.redAccent : const Color(0xFFFF6D00), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(w['name'] ?? 'Stop', style: GoogleFonts.inter(color: Colors.white, fontSize: 13))),
+                      GestureDetector(onTap: () => _removeWaypoint(i),
+                        child: const Icon(Icons.remove_circle_outline, color: Colors.white24, size: 18)),
+                    ]));
+                  }),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(child: OutlinedButton.icon(
+                      icon: const Icon(Icons.add_location_rounded, size: 16),
+                      label: Text(_routeWaypoints.isEmpty ? 'Set Start' : _routeWaypoints.length == 1 ? 'Set End' : 'Add Stop',
+                        style: GoogleFonts.inter(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF00BFA5),
+                        side: BorderSide(color: const Color(0xFF00BFA5).withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      onPressed: () => _showAddWaypointDialog(
+                        label: _routeWaypoints.isEmpty ? 'Set Start Point' : _routeWaypoints.length == 1 ? 'Set End Point' : 'Add Stop'),
+                    )),
+                  ]),
+                  if (_routeDistKm > 0)
+                    Padding(padding: const EdgeInsets.only(top: 10), child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xFF1A73E8).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                        Column(children: [
+                          Text('${_routeDistKm.toStringAsFixed(1)} km', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text('Distance', style: GoogleFonts.inter(color: Colors.white38, fontSize: 10)),
+                        ]),
+                        Container(width: 1, height: 30, color: Colors.white12),
+                        Column(children: [
+                          Text(_routeDurMin < 60 ? '${_routeDurMin.toStringAsFixed(0)} min' : '${(_routeDurMin / 60).toStringAsFixed(1)} hr',
+                            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text('Duration', style: GoogleFonts.inter(color: Colors.white38, fontSize: 10)),
+                        ]),
+                        Container(width: 1, height: 30, color: Colors.white12),
+                        Column(children: [
+                          Text('${_routeWaypoints.length}', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text('Stops', style: GoogleFonts.inter(color: Colors.white38, fontSize: 10)),
+                        ]),
+                      ]),
+                    )),
+                ]),
+              ),
+            ),
         ],
       ),
     );
@@ -616,6 +821,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     required String photo,
     required double speed,
     required bool isMe,
+    Color color = const Color(0xFF00BFA5),
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -644,13 +850,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: isMe ? const Color(0xFF1A73E8) : const Color(0xFF00BFA5),
+              color: color,
               width: 3,
             ),
             boxShadow: [
               BoxShadow(
-                color: (isMe ? const Color(0xFF1A73E8) : const Color(0xFF00BFA5))
-                    .withOpacity(0.4),
+                color: color.withOpacity(0.4),
                 blurRadius: 8,
               ),
             ],
