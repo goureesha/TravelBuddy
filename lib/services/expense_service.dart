@@ -8,9 +8,17 @@ class ExpenseService {
   static String? get _uid => _auth.currentUser?.uid;
   static String? get _name => _auth.currentUser?.displayName;
 
+  /// Returns the base collection ref — personal or team-scoped
+  static CollectionReference _expensesRef(String? teamId) {
+    if (teamId != null) {
+      return _firestore.collection('teams').doc(teamId).collection('expenses');
+    }
+    return _firestore.collection('users').doc(_uid!).collection('expenses');
+  }
+
   /// Add an expense
   static Future<String?> addExpense({
-    required String teamId,
+    String? teamId,
     required String description,
     required double amount,
     required String category,
@@ -18,11 +26,7 @@ class ExpenseService {
   }) async {
     if (_uid == null) return null;
 
-    final docRef = await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('expenses')
-        .add({
+    final docRef = await _expensesRef(teamId).add({
       'description': description.trim(),
       'amount': amount,
       'category': category,
@@ -36,33 +40,19 @@ class ExpenseService {
     return docRef.id;
   }
 
-  /// Get all expenses for a team
-  static Stream<QuerySnapshot> getTeamExpenses(String teamId) {
-    return _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('expenses')
-        .snapshots();
+  /// Get all expenses for a team or personal
+  static Stream<QuerySnapshot> getTeamExpenses(String? teamId) {
+    return _expensesRef(teamId).snapshots();
   }
 
   /// Toggle settled status
-  static Future<void> toggleSettled(String teamId, String expenseId, bool settled) async {
-    await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('expenses')
-        .doc(expenseId)
-        .update({'settled': !settled});
+  static Future<void> toggleSettled(String? teamId, String expenseId, bool settled) async {
+    await _expensesRef(teamId).doc(expenseId).update({'settled': !settled});
   }
 
   /// Delete an expense
-  static Future<void> deleteExpense(String teamId, String expenseId) async {
-    await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('expenses')
-        .doc(expenseId)
-        .delete();
+  static Future<void> deleteExpense(String? teamId, String expenseId) async {
+    await _expensesRef(teamId).doc(expenseId).delete();
   }
 
   /// Calculate balances (who owes whom)

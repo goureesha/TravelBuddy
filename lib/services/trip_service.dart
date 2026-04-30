@@ -8,20 +8,24 @@ class TripService {
   static String? get _uid => _auth.currentUser?.uid;
   static String? get _name => _auth.currentUser?.displayName;
 
+  /// Returns the base collection ref — personal or team-scoped
+  static CollectionReference _tripsRef(String? teamId) {
+    if (teamId != null) {
+      return _firestore.collection('teams').doc(teamId).collection('trips');
+    }
+    return _firestore.collection('users').doc(_uid!).collection('trips');
+  }
+
   /// Start a new trip
   static Future<String?> startTrip({
-    required String teamId,
+    String? teamId,
     required String vehicleName,
     required double fuelPricePerLiter,
     double startOdometer = 0,
   }) async {
     if (_uid == null) return null;
 
-    final docRef = await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('trips')
-        .add({
+    final docRef = await _tripsRef(teamId).add({
       'userId': _uid,
       'userName': _name ?? 'Unknown',
       'vehicleName': vehicleName.trim(),
@@ -42,21 +46,17 @@ class TripService {
 
   /// End a trip
   static Future<void> endTrip({
-    required String teamId,
+    String? teamId,
     required String tripId,
     required double endOdometer,
     required double fuelUsedLiters,
   }) async {
-    final tripRef = _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('trips')
-        .doc(tripId);
+    final tripRef = _tripsRef(teamId).doc(tripId);
 
     final tripSnap = await tripRef.get();
     if (!tripSnap.exists) return;
 
-    final data = tripSnap.data()!;
+    final data = tripSnap.data()! as Map<String, dynamic>;
     final startOdometer = (data['startOdometer'] as num?)?.toDouble() ?? 0;
     final fuelPrice = (data['fuelPricePerLiter'] as num?)?.toDouble() ?? 0;
     final distanceKm = endOdometer - startOdometer;
@@ -74,18 +74,13 @@ class TripService {
 
   /// Add a fuel log entry during a trip
   static Future<void> addFuelLog({
-    required String teamId,
+    String? teamId,
     required String tripId,
     required double liters,
     required double costPerLiter,
     String? stationName,
   }) async {
-    await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('trips')
-        .doc(tripId)
-        .update({
+    await _tripsRef(teamId).doc(tripId).update({
       'fuelLogs': FieldValue.arrayUnion([
         {
           'liters': liters,
@@ -99,31 +94,21 @@ class TripService {
     });
   }
 
-  /// Get active trip for a team
-  static Stream<QuerySnapshot> getActiveTrips(String teamId) {
-    return _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('trips')
+  /// Get active trip for a team or personal
+  static Stream<QuerySnapshot> getActiveTrips(String? teamId) {
+    return _tripsRef(teamId)
         .where('status', isEqualTo: 'active')
         .snapshots();
   }
 
-  /// Get all trips for a team (history)
-  static Stream<QuerySnapshot> getTripHistory(String teamId) {
-    return _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('trips')
-        .snapshots();
+  /// Get all trips for a team or personal (history)
+  static Stream<QuerySnapshot> getTripHistory(String? teamId) {
+    return _tripsRef(teamId).snapshots();
   }
 
   /// Get trip stats summary
-  static Future<Map<String, double>> getTripStats(String teamId) async {
-    final snapshot = await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('trips')
+  static Future<Map<String, double>> getTripStats(String? teamId) async {
+    final snapshot = await _tripsRef(teamId)
         .where('status', isEqualTo: 'completed')
         .get();
 
@@ -132,7 +117,7 @@ class TripService {
     double totalCost = 0;
 
     for (final doc in snapshot.docs) {
-      final data = doc.data();
+      final data = doc.data() as Map<String, dynamic>;
       totalDistance += (data['totalDistanceKm'] as num?)?.toDouble() ?? 0;
       totalFuel += (data['fuelUsedLiters'] as num?)?.toDouble() ?? 0;
       totalCost += (data['totalCost'] as num?)?.toDouble() ?? 0;

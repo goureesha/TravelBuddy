@@ -16,60 +16,56 @@ class BlogScreen extends StatefulWidget {
 }
 
 class _BlogScreenState extends State<BlogScreen> {
-  String? _selectedTeamId;
-  String? _selectedTeamName;
+  String? _selectedTeamId; // null = personal/solo
+  String _selectedLabel = 'Personal';
 
   // ══════════════════════════════════
   // TEAM PICKER
   // ══════════════════════════════════
-  void _pickTeam() {
+  void _pickMode() {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1C2128),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => StreamBuilder<QuerySnapshot>(
-        stream: TeamService.getMyTeams(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-          }
-          final teams = snapshot.data!.docs;
-          if (teams.isEmpty) {
-            return SizedBox(
-              height: 200,
-              child: Center(child: Text('No teams yet', style: GoogleFonts.inter(color: Colors.white54))),
-            );
-          }
-          return Padding(
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Select Team', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                ...teams.map((doc) {
+            child: Text('Select Mode', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const CircleAvatar(backgroundColor: Color(0xFF00BFA5), child: Icon(Icons.person, color: Colors.white, size: 20)),
+            title: Text('Personal', style: GoogleFonts.inter(color: Colors.white)),
+            subtitle: Text('Your personal travel blog', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+            trailing: _selectedTeamId == null ? const Icon(Icons.check_circle, color: Color(0xFF00BFA5)) : null,
+            onTap: () { setState(() { _selectedTeamId = null; _selectedLabel = 'Personal'; }); Navigator.pop(ctx); },
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          StreamBuilder<QuerySnapshot>(
+            stream: TeamService.getMyTeams(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox(height: 60, child: Center(child: CircularProgressIndicator()));
+              final teams = snapshot.data!.docs;
+              if (teams.isEmpty) return const SizedBox.shrink();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: teams.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFF1A73E8),
-                      child: const Icon(Icons.group, color: Colors.white, size: 20),
-                    ),
+                    leading: const CircleAvatar(backgroundColor: Color(0xFF1A73E8), child: Icon(Icons.group, color: Colors.white, size: 20)),
                     title: Text(data['name'] ?? '', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () {
-                      setState(() {
-                        _selectedTeamId = doc.id;
-                        _selectedTeamName = data['name'];
-                      });
-                      Navigator.pop(ctx);
-                    },
+                    trailing: _selectedTeamId == doc.id ? const Icon(Icons.check_circle, color: Color(0xFF1A73E8)) : null,
+                    onTap: () { setState(() { _selectedTeamId = doc.id; _selectedLabel = data['name'] ?? 'Team'; }); Navigator.pop(ctx); },
                   );
-                }),
-              ],
-            ),
-          );
-        },
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
@@ -78,11 +74,6 @@ class _BlogScreenState extends State<BlogScreen> {
   // CREATE POST
   // ══════════════════════════════════
   void _showCreatePost() async {
-    if (_selectedTeamId == null) {
-      _pickTeam();
-      return;
-    }
-
     final captionCtrl = TextEditingController();
     XFile? pickedImage;
     bool isPosting = false;
@@ -147,7 +138,7 @@ class _BlogScreenState extends State<BlogScreen> {
 
                             final bytes = pickedImage != null ? await pickedImage!.readAsBytes() : null;
                             await BlogService.createPost(
-                              teamId: _selectedTeamId!,
+                              teamId: _selectedTeamId,
                               caption: captionCtrl.text,
                               imageBytes: bytes,
                               imageName: pickedImage?.name,
@@ -185,37 +176,20 @@ class _BlogScreenState extends State<BlogScreen> {
         title: Text('Travel Blog', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
           TextButton.icon(
-            onPressed: _pickTeam,
-            icon: const Icon(Icons.group_rounded, size: 18, color: Color(0xFF00BFA5)),
+            onPressed: _pickMode,
+            icon: Icon(
+              _selectedTeamId == null ? Icons.person_rounded : Icons.group_rounded,
+              size: 18, color: const Color(0xFF00BFA5),
+            ),
             label: Text(
-              _selectedTeamName ?? 'Pick Team',
+              _selectedLabel,
               style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 13),
             ),
           ),
         ],
       ),
-      body: _selectedTeamId == null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.photo_camera_rounded, size: 64, color: Colors.white.withOpacity(0.12)),
-                  const SizedBox(height: 16),
-                  Text('Select a team to view blog', style: GoogleFonts.inter(color: Colors.white38, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _pickTeam,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A73E8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text('Pick Team', style: GoogleFonts.inter(color: Colors.white)),
-                  ),
-                ],
-              ),
-            )
-          : StreamBuilder<QuerySnapshot>(
-              stream: BlogService.getTeamBlog(_selectedTeamId!),
+      body: StreamBuilder<QuerySnapshot>(
+              stream: BlogService.getTeamBlog(_selectedTeamId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -255,13 +229,11 @@ class _BlogScreenState extends State<BlogScreen> {
                 );
               },
             ),
-      floatingActionButton: _selectedTeamId != null
-          ? FloatingActionButton(
-              onPressed: _showCreatePost,
-              backgroundColor: const Color(0xFF00BFA5),
-              child: const Icon(Icons.add_a_photo_rounded, color: Colors.white),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreatePost,
+        backgroundColor: const Color(0xFF00BFA5),
+        child: const Icon(Icons.add_a_photo_rounded, color: Colors.white),
+      ),
     );
   }
 
@@ -311,7 +283,7 @@ class _BlogScreenState extends State<BlogScreen> {
                 ),
                 if (data['userId'] == currentUid)
                   IconButton(
-                    onPressed: () => BlogService.deletePost(_selectedTeamId!, postId),
+                    onPressed: () => BlogService.deletePost(_selectedTeamId, postId),
                     icon: Icon(Icons.delete_outline, color: Colors.white.withOpacity(0.2), size: 18),
                   ),
               ],
@@ -351,7 +323,7 @@ class _BlogScreenState extends State<BlogScreen> {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () => BlogService.toggleLike(_selectedTeamId!, postId),
+                  onPressed: () => BlogService.toggleLike(_selectedTeamId, postId),
                   icon: Icon(
                     isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                     color: isLiked ? Colors.redAccent : Colors.white30,

@@ -13,45 +13,56 @@ class ExpenseScreen extends StatefulWidget {
 }
 
 class _ExpenseScreenState extends State<ExpenseScreen> {
-  String? _selectedTeamId;
-  String? _selectedTeamName;
+  String? _selectedTeamId; // null = personal/solo
+  String _selectedLabel = 'Personal';
 
-  void _pickTeam() {
+  void _pickMode() {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1C2128),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => StreamBuilder<QuerySnapshot>(
-        stream: TeamService.getMyTeams(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-          final teams = snapshot.data!.docs;
-          if (teams.isEmpty) return SizedBox(height: 200, child: Center(child: Text('No teams', style: GoogleFonts.inter(color: Colors.white54))));
-          return Padding(
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Select Team', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                ...teams.map((doc) {
+            child: Text('Select Mode', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const CircleAvatar(backgroundColor: Color(0xFF9C27B0), child: Icon(Icons.person, color: Colors.white, size: 20)),
+            title: Text('Personal', style: GoogleFonts.inter(color: Colors.white)),
+            subtitle: Text('Track your own expenses', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+            trailing: _selectedTeamId == null ? const Icon(Icons.check_circle, color: Color(0xFF9C27B0)) : null,
+            onTap: () { setState(() { _selectedTeamId = null; _selectedLabel = 'Personal'; }); Navigator.pop(ctx); },
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          StreamBuilder<QuerySnapshot>(
+            stream: TeamService.getMyTeams(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox(height: 60, child: Center(child: CircularProgressIndicator()));
+              final teams = snapshot.data!.docs;
+              if (teams.isEmpty) return const SizedBox.shrink();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: teams.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   return ListTile(
                     leading: const CircleAvatar(backgroundColor: Color(0xFF1A73E8), child: Icon(Icons.group, color: Colors.white, size: 20)),
                     title: Text(data['name'] ?? '', style: GoogleFonts.inter(color: Colors.white)),
-                    onTap: () { setState(() { _selectedTeamId = doc.id; _selectedTeamName = data['name']; }); Navigator.pop(ctx); },
+                    trailing: _selectedTeamId == doc.id ? const Icon(Icons.check_circle, color: Color(0xFF1A73E8)) : null,
+                    onTap: () { setState(() { _selectedTeamId = doc.id; _selectedLabel = data['name'] ?? 'Team'; }); Navigator.pop(ctx); },
                   );
-                }),
-              ],
-            ),
-          );
-        },
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
 
   void _showAddExpense() {
-    if (_selectedTeamId == null) { _pickTeam(); return; }
     final descCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     String selectedCategory = 'food';
@@ -120,7 +131,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               onPressed: () async {
                 if (descCtrl.text.trim().isEmpty || amountCtrl.text.isEmpty) return;
                 await ExpenseService.addExpense(
-                  teamId: _selectedTeamId!,
+                  teamId: _selectedTeamId,
                   description: descCtrl.text,
                   amount: double.tryParse(amountCtrl.text) ?? 0,
                   category: selectedCategory,
@@ -143,27 +154,17 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         title: Text('Expenses', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
           TextButton.icon(
-            onPressed: _pickTeam,
-            icon: const Icon(Icons.group_rounded, size: 18, color: Color(0xFF9C27B0)),
-            label: Text(_selectedTeamName ?? 'Pick Team', style: GoogleFonts.inter(color: const Color(0xFF9C27B0), fontSize: 13)),
+            onPressed: _pickMode,
+            icon: Icon(
+              _selectedTeamId == null ? Icons.person_rounded : Icons.group_rounded,
+              size: 18, color: const Color(0xFF9C27B0),
+            ),
+            label: Text(_selectedLabel, style: GoogleFonts.inter(color: const Color(0xFF9C27B0), fontSize: 13)),
           ),
         ],
       ),
-      body: _selectedTeamId == null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.account_balance_wallet_rounded, size: 64, color: Colors.white.withOpacity(0.12)),
-                  const SizedBox(height: 16),
-                  Text('Select a team to track expenses', style: GoogleFonts.inter(color: Colors.white38, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  ElevatedButton(onPressed: _pickTeam, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9C27B0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text('Pick Team', style: GoogleFonts.inter(color: Colors.white))),
-                ],
-              ),
-            )
-          : StreamBuilder<QuerySnapshot>(
-              stream: ExpenseService.getTeamExpenses(_selectedTeamId!),
+      body: StreamBuilder<QuerySnapshot>(
+              stream: ExpenseService.getTeamExpenses(_selectedTeamId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                 final docs = snapshot.data?.docs ?? [];
@@ -237,7 +238,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                           color: Colors.redAccent,
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        onDismissed: (_) => ExpenseService.deleteExpense(_selectedTeamId!, doc.id),
+                        onDismissed: (_) => ExpenseService.deleteExpense(_selectedTeamId, doc.id),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
@@ -272,7 +273,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                                 Text('₹${amt.toStringAsFixed(0)}', style: GoogleFonts.inter(color: isSettled ? Colors.green : const Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
                                 const SizedBox(width: 8),
                                 GestureDetector(
-                                  onTap: () => ExpenseService.toggleSettled(_selectedTeamId!, doc.id, isSettled),
+                                  onTap: () => ExpenseService.toggleSettled(_selectedTeamId, doc.id, isSettled),
                                   child: Icon(
                                     isSettled ? Icons.check_circle_rounded : Icons.circle_outlined,
                                     color: isSettled ? Colors.green : Colors.white24,
@@ -288,15 +289,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   ],
                 );
               },
-            ),
-      floatingActionButton: _selectedTeamId != null
-          ? FloatingActionButton.extended(
-              onPressed: _showAddExpense,
-              backgroundColor: const Color(0xFF9C27B0),
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: Text('Add Expense', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddExpense,
+        backgroundColor: const Color(0xFF9C27B0),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: Text('Add Expense', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 

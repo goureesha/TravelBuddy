@@ -12,9 +12,17 @@ class BlogService {
   static String? get _name => _auth.currentUser?.displayName;
   static String? get _photo => _auth.currentUser?.photoURL;
 
+  /// Returns the blog collection ref — personal or team-scoped
+  static CollectionReference _blogRef(String? teamId) {
+    if (teamId != null) {
+      return _firestore.collection('teams').doc(teamId).collection('blog');
+    }
+    return _firestore.collection('users').doc(_uid!).collection('blog');
+  }
+
   /// Create a blog post
   static Future<String?> createPost({
-    required String teamId,
+    String? teamId,
     required String caption,
     Uint8List? imageBytes,
     String? imageName,
@@ -22,13 +30,14 @@ class BlogService {
     if (_uid == null) return null;
 
     String? imageUrl;
+    final storagePath = teamId != null ? 'teams/$teamId' : 'users/$_uid';
 
     // Upload image if provided
     if (imageBytes != null && imageName != null) {
       try {
         final ref = _storage
             .ref()
-            .child('teams/$teamId/blog/${DateTime.now().millisecondsSinceEpoch}_$imageName');
+            .child('$storagePath/blog/${DateTime.now().millisecondsSinceEpoch}_$imageName');
         await ref.putData(imageBytes);
         imageUrl = await ref.getDownloadURL();
       } catch (e) {
@@ -36,11 +45,7 @@ class BlogService {
       }
     }
 
-    final docRef = await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('blog')
-        .add({
+    final docRef = await _blogRef(teamId).add({
       'caption': caption.trim(),
       'imageUrl': imageUrl ?? '',
       'userId': _uid,
@@ -54,29 +59,21 @@ class BlogService {
     return docRef.id;
   }
 
-  /// Get blog posts for a team (real-time)
-  static Stream<QuerySnapshot> getTeamBlog(String teamId) {
-    return _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('blog')
-        .snapshots();
+  /// Get blog posts (real-time)
+  static Stream<QuerySnapshot> getTeamBlog(String? teamId) {
+    return _blogRef(teamId).snapshots();
   }
 
   /// Toggle like on a post
-  static Future<void> toggleLike(String teamId, String postId) async {
+  static Future<void> toggleLike(String? teamId, String postId) async {
     if (_uid == null) return;
 
-    final docRef = _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('blog')
-        .doc(postId);
+    final docRef = _blogRef(teamId).doc(postId);
 
     final doc = await docRef.get();
     if (!doc.exists) return;
 
-    final likes = List<String>.from(doc.data()?['likes'] ?? []);
+    final likes = List<String>.from((doc.data() as Map<String, dynamic>?)?['likes'] ?? []);
 
     if (likes.contains(_uid)) {
       await docRef.update({
@@ -92,12 +89,7 @@ class BlogService {
   }
 
   /// Delete a post
-  static Future<void> deletePost(String teamId, String postId) async {
-    await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('blog')
-        .doc(postId)
-        .delete();
+  static Future<void> deletePost(String? teamId, String postId) async {
+    await _blogRef(teamId).doc(postId).delete();
   }
 }

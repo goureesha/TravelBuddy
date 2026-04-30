@@ -15,8 +15,8 @@ class FuelTrackScreen extends StatefulWidget {
 
 class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String? _selectedTeamId;
-  String? _selectedTeamName;
+  String? _selectedTeamId; // null = personal/solo mode
+  String _selectedLabel = 'Personal';
 
   @override
   void initState() {
@@ -31,9 +31,9 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
   }
 
   // ══════════════════════════════════
-  // TEAM PICKER
+  // MODE PICKER (Personal or Team)
   // ══════════════════════════════════
-  void _pickTeam() {
+  void _pickMode() {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1C2128),
@@ -41,30 +41,38 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: TeamService.getMyTeams(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-            }
-            final teams = snapshot.data!.docs;
-            if (teams.isEmpty) {
-              return SizedBox(
-                height: 200,
-                child: Center(
-                  child: Text('No teams yet. Create one first!',
-                      style: GoogleFonts.inter(color: Colors.white54)),
-                ),
-              );
-            }
-            return Padding(
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Select Team', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  ...teams.map((doc) {
+              child: Text('Select Mode', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            // Personal / Solo option
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF00BFA5),
+                child: Icon(Icons.person, color: Colors.white, size: 20),
+              ),
+              title: Text('Personal (Solo Ride)', style: GoogleFonts.inter(color: Colors.white)),
+              subtitle: Text('Track your own trips', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+              trailing: _selectedTeamId == null ? const Icon(Icons.check_circle, color: Color(0xFF00BFA5)) : null,
+              onTap: () {
+                setState(() { _selectedTeamId = null; _selectedLabel = 'Personal'; });
+                Navigator.pop(ctx);
+              },
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            // Team options
+            StreamBuilder<QuerySnapshot>(
+              stream: TeamService.getMyTeams(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const SizedBox(height: 60, child: Center(child: CircularProgressIndicator()));
+                final teams = snapshot.data!.docs;
+                if (teams.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: teams.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     return ListTile(
                       leading: const CircleAvatar(
@@ -72,19 +80,18 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
                         child: Icon(Icons.group, color: Colors.white, size: 20),
                       ),
                       title: Text(data['name'] ?? '', style: GoogleFonts.inter(color: Colors.white)),
+                      trailing: _selectedTeamId == doc.id ? const Icon(Icons.check_circle, color: Color(0xFF1A73E8)) : null,
                       onTap: () {
-                        setState(() {
-                          _selectedTeamId = doc.id;
-                          _selectedTeamName = data['name'];
-                        });
+                        setState(() { _selectedTeamId = doc.id; _selectedLabel = data['name'] ?? 'Team'; });
                         Navigator.pop(ctx);
                       },
                     );
-                  }),
-                ],
-              ),
-            );
-          },
+                  }).toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
         );
       },
     );
@@ -94,10 +101,6 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
   // START TRIP DIALOG
   // ══════════════════════════════════
   void _showStartTripDialog() {
-    if (_selectedTeamId == null) {
-      _pickTeam();
-      return;
-    }
     final vehicleCtrl = TextEditingController();
     final fuelPriceCtrl = TextEditingController(text: '102');
     final odometerCtrl = TextEditingController(text: '0');
@@ -133,7 +136,7 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
             onPressed: () async {
               if (vehicleCtrl.text.trim().isEmpty) return;
               await TripService.startTrip(
-                teamId: _selectedTeamId!,
+                teamId: _selectedTeamId,
                 vehicleName: vehicleCtrl.text,
                 fuelPricePerLiter: double.tryParse(fuelPriceCtrl.text) ?? 102,
                 startOdometer: double.tryParse(odometerCtrl.text) ?? 0,
@@ -201,7 +204,7 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
             ),
             onPressed: () async {
               await TripService.endTrip(
-                teamId: _selectedTeamId!,
+                teamId: _selectedTeamId,
                 tripId: tripId,
                 endOdometer: double.tryParse(odometerCtrl.text) ?? 0,
                 fuelUsedLiters: double.tryParse(fuelCtrl.text) ?? 0,
@@ -254,7 +257,7 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
             onPressed: () async {
               if (litersCtrl.text.isEmpty) return;
               await TripService.addFuelLog(
-                teamId: _selectedTeamId!,
+                teamId: _selectedTeamId,
                 tripId: tripId,
                 liters: double.tryParse(litersCtrl.text) ?? 0,
                 costPerLiter: double.tryParse(priceCtrl.text) ?? 102,
@@ -280,10 +283,14 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
         title: Text('Fuel & Trips', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
           TextButton.icon(
-            onPressed: _pickTeam,
-            icon: const Icon(Icons.group_rounded, size: 18, color: Color(0xFF00BFA5)),
+            onPressed: _pickMode,
+            icon: Icon(
+              _selectedTeamId == null ? Icons.person_rounded : Icons.group_rounded,
+              size: 18,
+              color: const Color(0xFF00BFA5),
+            ),
             label: Text(
-              _selectedTeamName ?? 'Pick Team',
+              _selectedLabel,
               style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 13),
             ),
           ),
@@ -300,42 +307,19 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
           ],
         ),
       ),
-      body: _selectedTeamId == null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.local_gas_station_rounded, size: 64, color: Colors.white.withOpacity(0.15)),
-                  const SizedBox(height: 16),
-                  Text('Select a team to track trips',
-                      style: GoogleFonts.inter(color: Colors.white38, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _pickTeam,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A73E8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text('Pick Team', style: GoogleFonts.inter(color: Colors.white)),
-                  ),
-                ],
-              ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildActiveTrips(),
-                _buildTripHistory(),
-              ],
-            ),
-      floatingActionButton: _selectedTeamId != null
-          ? FloatingActionButton.extended(
-              onPressed: _showStartTripDialog,
-              backgroundColor: const Color(0xFF00BFA5),
-              icon: const Icon(Icons.add_road_rounded, color: Colors.white),
-              label: Text('New Trip', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            )
-          : null,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildActiveTrips(),
+          _buildTripHistory(),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showStartTripDialog,
+        backgroundColor: const Color(0xFF00BFA5),
+        icon: const Icon(Icons.add_road_rounded, color: Colors.white),
+        label: Text('New Trip', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 
@@ -344,7 +328,7 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
   // ══════════════════════════════════
   Widget _buildActiveTrips() {
     return StreamBuilder<QuerySnapshot>(
-      stream: TripService.getActiveTrips(_selectedTeamId!),
+      stream: TripService.getActiveTrips(_selectedTeamId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -512,7 +496,7 @@ class _FuelTrackScreenState extends State<FuelTrackScreen> with SingleTickerProv
   // ══════════════════════════════════
   Widget _buildTripHistory() {
     return StreamBuilder<QuerySnapshot>(
-      stream: TripService.getTripHistory(_selectedTeamId!),
+      stream: TripService.getTripHistory(_selectedTeamId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
