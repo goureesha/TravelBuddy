@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'auth_screen.dart';
 import 'teams_screen.dart';
 import 'live_map_screen.dart';
+import 'fuel_track_screen.dart';
+import 'speed_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _DashboardTab(),
     LiveMapScreen(),
     TeamsScreen(),
+    FuelTrackScreen(),
     _ProfileTab(),
   ];
 
@@ -40,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
           indicatorColor: const Color(0xFF1A73E8).withOpacity(0.2),
           selectedIndex: _currentIndex,
           onDestinationSelected: (i) => setState(() => _currentIndex = i),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.dashboard_outlined),
@@ -57,6 +61,11 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Teams',
             ),
             NavigationDestination(
+              icon: Icon(Icons.local_gas_station_outlined),
+              selectedIcon: Icon(Icons.local_gas_station_rounded),
+              label: 'Fuel',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person_rounded),
               label: 'Profile',
@@ -67,6 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
 
 // ══════════════════════════════════════
 // TAB: Dashboard
@@ -134,24 +144,31 @@ class _DashboardTab extends StatelessWidget {
             Row(
               children: [
                 _quickAction(
-                  Icons.play_arrow_rounded,
-                  'Start Trip',
+                  Icons.speed_rounded,
+                  'Speed',
                   const Color(0xFF00BFA5),
-                  () {},
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.group_add_rounded,
-                  'New Team',
-                  const Color(0xFF1A73E8),
-                  () {},
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeedScreen())),
                 ),
                 const SizedBox(width: 12),
                 _quickAction(
                   Icons.local_gas_station_rounded,
-                  'Log Fuel',
+                  'Fuel Track',
                   const Color(0xFFFF6D00),
-                  () {},
+                  () {
+                    // Navigate to Fuel tab
+                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                    homeState?.setState(() => homeState._currentIndex = 3);
+                  },
+                ),
+                const SizedBox(width: 12),
+                _quickAction(
+                  Icons.group_add_rounded,
+                  'Teams',
+                  const Color(0xFF1A73E8),
+                  () {
+                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                    homeState?.setState(() => homeState._currentIndex = 2);
+                  },
                 ),
               ],
             ),
