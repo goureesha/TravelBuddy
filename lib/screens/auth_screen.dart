@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,19 +18,24 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final googleUser = await GoogleSignIn.instance.authenticate();
-      if (googleUser == null) {
-        setState(() => _isLoading = false);
-        return;
+      if (kIsWeb) {
+        // Web: use Firebase popup sign-in
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        // Mobile: use GoogleSignIn v7
+        final googleUser = await GoogleSignIn.instance.authenticate();
+        if (googleUser == null) {
+          setState(() => _isLoading = false);
+          return;
+        }
+        final authentication = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          idToken: authentication.idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
       }
-
-      // Get auth tokens
-      final authentication = await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        idToken: authentication.idToken,
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
