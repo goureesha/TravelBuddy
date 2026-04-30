@@ -33,7 +33,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   List<Map<String, dynamic>> _routeWaypoints = []; // {name, lat, lng}
   double _routeDistKm = 0;
   double _routeDurMin = 0;
-  bool _showRoutePanel = false;
+  bool _showRoutePanel = false; // kept for route info chip visibility
 
   // Member colors
   static const List<Color> _memberColors = [
@@ -337,8 +337,128 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void _clearRoute() {
     setState(() {
       _routeWaypoints.clear(); _routePolyline = [];
-      _routeDistKm = 0; _routeDurMin = 0; _showRoutePanel = false;
+      _routeDistKm = 0; _routeDurMin = 0;
     });
+  }
+
+  /// Opens the route planner as a draggable bottom sheet
+  void _showRoutePlannerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          void refreshAndRebuild() {
+            setSheetState(() {}); // rebuild sheet
+            setState(() {});      // rebuild map
+          }
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Handle
+                Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+                // Header
+                Row(children: [
+                  const Icon(Icons.route_rounded, color: Color(0xFF00BFA5), size: 22),
+                  const SizedBox(width: 8),
+                  Text('Plan Tour', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  if (_routeWaypoints.isNotEmpty)
+                    GestureDetector(onTap: () { _clearRoute(); refreshAndRebuild(); },
+                      child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22)),
+                ]),
+                const SizedBox(height: 16),
+                // Start point
+                _routeSlot(
+                  label: _routeWaypoints.isNotEmpty ? _routeWaypoints.first['name'] ?? 'Start' : 'Set Start Point',
+                  icon: Icons.play_circle_rounded,
+                  color: const Color(0xFF00BFA5),
+                  hasValue: _routeWaypoints.isNotEmpty,
+                  onTap: () => _showAddWaypointDialog(label: 'Set Start Point', onAdd: (name, lat, lng) {
+                    if (_routeWaypoints.isEmpty) { _routeWaypoints.add({'name': name, 'lat': lat, 'lng': lng}); }
+                    else { _routeWaypoints[0] = {'name': name, 'lat': lat, 'lng': lng}; }
+                    _fetchRoute(); refreshAndRebuild();
+                  }),
+                  onRemove: _routeWaypoints.isNotEmpty ? () { _removeWaypoint(0); refreshAndRebuild(); } : null,
+                ),
+                // Stops
+                if (_routeWaypoints.length > 2)
+                  ..._routeWaypoints.sublist(1, _routeWaypoints.length - 1).asMap().entries.map((e) {
+                    final actualIdx = e.key + 1;
+                    final w = e.value;
+                    return Padding(padding: const EdgeInsets.only(top: 8), child: _routeSlot(
+                      label: w['name'] ?? 'Stop',
+                      icon: Icons.circle, color: const Color(0xFFFF6D00), hasValue: true,
+                      onTap: () {}, onRemove: () { _removeWaypoint(actualIdx); refreshAndRebuild(); },
+                    ));
+                  }),
+                // Add stop button
+                if (_routeWaypoints.length >= 2)
+                  Padding(padding: const EdgeInsets.only(top: 8), child: GestureDetector(
+                    onTap: () => _showAddWaypointDialog(label: 'Add Stop', onAdd: (name, lat, lng) {
+                      _routeWaypoints.insert(_routeWaypoints.length - 1, {'name': name, 'lat': lat, 'lng': lng});
+                      _fetchRoute(); refreshAndRebuild();
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(border: Border.all(color: const Color(0xFFFF6D00).withOpacity(0.3), style: BorderStyle.solid),
+                        borderRadius: BorderRadius.circular(12)),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        const Icon(Icons.add_rounded, color: Color(0xFFFF6D00), size: 18),
+                        const SizedBox(width: 6),
+                        Text('Add Stop', style: GoogleFonts.inter(color: const Color(0xFFFF6D00), fontSize: 13)),
+                      ]),
+                    ),
+                  )),
+                const SizedBox(height: 8),
+                // End point
+                _routeSlot(
+                  label: _routeWaypoints.length >= 2 ? _routeWaypoints.last['name'] ?? 'End' : 'Set End Point',
+                  icon: Icons.flag_circle_rounded,
+                  color: Colors.redAccent,
+                  hasValue: _routeWaypoints.length >= 2,
+                  onTap: () => _showAddWaypointDialog(label: 'Set End Point', onAdd: (name, lat, lng) {
+                    if (_routeWaypoints.length < 2) { _routeWaypoints.add({'name': name, 'lat': lat, 'lng': lng}); }
+                    else { _routeWaypoints[_routeWaypoints.length - 1] = {'name': name, 'lat': lat, 'lng': lng}; }
+                    _fetchRoute(); refreshAndRebuild();
+                  }),
+                  onRemove: _routeWaypoints.length >= 2 ? () { _removeWaypoint(_routeWaypoints.length - 1); refreshAndRebuild(); } : null,
+                ),
+                // Route info
+                if (_routeDistKm > 0)
+                  Padding(padding: const EdgeInsets.only(top: 14), child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF00BFA5)]),
+                      borderRadius: BorderRadius.circular(12)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                      Column(children: [
+                        Text('${_routeDistKm.toStringAsFixed(1)} km', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Distance', style: GoogleFonts.inter(color: Colors.white70, fontSize: 10)),
+                      ]),
+                      Container(width: 1, height: 30, color: Colors.white24),
+                      Column(children: [
+                        Text(_routeDurMin < 60 ? '${_routeDurMin.toStringAsFixed(0)} min' : '${(_routeDurMin / 60).toStringAsFixed(1)} hr',
+                          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Duration', style: GoogleFonts.inter(color: Colors.white70, fontSize: 10)),
+                      ]),
+                      Container(width: 1, height: 30, color: Colors.white24),
+                      Column(children: [
+                        Text('${(_routeWaypoints.length - 2).clamp(0, 999)}', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Stops', style: GoogleFonts.inter(color: Colors.white70, fontSize: 10)),
+                      ]),
+                    ]),
+                  )),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   /// Search places using Nominatim (free OpenStreetMap geocoder)
@@ -361,7 +481,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     return [];
   }
 
-  void _showAddWaypointDialog({String label = 'Add Stop'}) {
+  void _showAddWaypointDialog({String label = 'Add Stop', void Function(String name, double lat, double lng)? onAdd}) {
     final searchCtrl = TextEditingController();
     List<Map<String, dynamic>> searchResults = [];
     bool isSearching = false;
@@ -473,7 +593,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               onPressed: selectedLat != null && selectedLng != null ? () {
-                _addWaypoint(selectedName ?? 'Stop ${_routeWaypoints.length + 1}', selectedLat!, selectedLng!);
+                if (onAdd != null) {
+                  onAdd(selectedName ?? 'Stop ${_routeWaypoints.length + 1}', selectedLat!, selectedLng!);
+                } else {
+                  _addWaypoint(selectedName ?? 'Stop ${_routeWaypoints.length + 1}', selectedLat!, selectedLng!);
+                }
                 debounce?.cancel();
                 Navigator.pop(ctx);
               } : null,
@@ -799,8 +923,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 // Plan Tour button
                 _mapButton(
                   icon: Icons.route_rounded,
-                  color: _showRoutePanel ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.54),
-                  onTap: () => setState(() => _showRoutePanel = !_showRoutePanel),
+                  color: _routeWaypoints.isNotEmpty ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.54),
+                  onTap: _showRoutePlannerSheet,
                 ),
                 const Spacer(),
                 // Zoom controls
@@ -827,78 +951,37 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             ),
           ),
 
-          // ── ROUTE PLANNING PANEL ──
-          if (_showRoutePanel)
+          // ── ROUTE INFO CHIP (when route is active) ──
+          if (_routeDistKm > 0 && !_showRoutePanel)
             Positioned(
-              top: 80, left: 12, right: 12,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161B22).withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                ),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Row(children: [
-                    const Icon(Icons.route_rounded, color: Color(0xFF00BFA5), size: 20),
+              top: 80, left: 16, right: 16,
+              child: GestureDetector(
+                onTap: _showRoutePlannerSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161B22).withOpacity(0.92),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00BFA5).withOpacity(0.3)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.route_rounded, color: Color(0xFF00BFA5), size: 18),
                     const SizedBox(width: 8),
-                    Text('Plan Tour', style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('${_routeDistKm.toStringAsFixed(1)} km', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text('·', style: GoogleFonts.inter(color: Colors.white38)),
+                    const SizedBox(width: 8),
+                    Text(_routeDurMin < 60 ? '${_routeDurMin.toStringAsFixed(0)} min' : '${(_routeDurMin / 60).toStringAsFixed(1)} hr',
+                      style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text('·', style: GoogleFonts.inter(color: Colors.white38)),
+                    const SizedBox(width: 8),
+                    Text('${(_routeWaypoints.length - 2).clamp(0, 999)} stops', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
                     const Spacer(),
-                    if (_routeWaypoints.isNotEmpty)
-                      GestureDetector(onTap: _clearRoute, child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20)),
-                    const SizedBox(width: 8),
-                    GestureDetector(onTap: () => setState(() => _showRoutePanel = false),
-                      child: const Icon(Icons.close, color: Colors.white38, size: 20)),
+                    GestureDetector(onTap: _clearRoute,
+                      child: const Icon(Icons.close, color: Colors.white38, size: 18)),
                   ]),
-                  const SizedBox(height: 10),
-                  ..._routeWaypoints.asMap().entries.map((e) {
-                    final i = e.key; final w = e.value;
-                    final isStart = i == 0; final isEnd = i == _routeWaypoints.length - 1;
-                    return Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [
-                      Icon(isStart ? Icons.play_circle : isEnd ? Icons.flag_circle : Icons.circle,
-                        color: isStart ? const Color(0xFF00BFA5) : isEnd ? Colors.redAccent : const Color(0xFFFF6D00), size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(w['name'] ?? 'Stop', style: GoogleFonts.inter(color: Colors.white, fontSize: 13))),
-                      GestureDetector(onTap: () => _removeWaypoint(i),
-                        child: const Icon(Icons.remove_circle_outline, color: Colors.white24, size: 18)),
-                    ]));
-                  }),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    Expanded(child: OutlinedButton.icon(
-                      icon: const Icon(Icons.add_location_rounded, size: 16),
-                      label: Text(_routeWaypoints.isEmpty ? 'Set Start' : _routeWaypoints.length == 1 ? 'Set End' : 'Add Stop',
-                        style: GoogleFonts.inter(fontSize: 12)),
-                      style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF00BFA5),
-                        side: BorderSide(color: const Color(0xFF00BFA5).withOpacity(0.3)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      onPressed: () => _showAddWaypointDialog(
-                        label: _routeWaypoints.isEmpty ? 'Set Start Point' : _routeWaypoints.length == 1 ? 'Set End Point' : 'Add Stop'),
-                    )),
-                  ]),
-                  if (_routeDistKm > 0)
-                    Padding(padding: const EdgeInsets.only(top: 10), child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: const Color(0xFF1A73E8).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                        Column(children: [
-                          Text('${_routeDistKm.toStringAsFixed(1)} km', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('Distance', style: GoogleFonts.inter(color: Colors.white38, fontSize: 10)),
-                        ]),
-                        Container(width: 1, height: 30, color: Colors.white12),
-                        Column(children: [
-                          Text(_routeDurMin < 60 ? '${_routeDurMin.toStringAsFixed(0)} min' : '${(_routeDurMin / 60).toStringAsFixed(1)} hr',
-                            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('Duration', style: GoogleFonts.inter(color: Colors.white38, fontSize: 10)),
-                        ]),
-                        Container(width: 1, height: 30, color: Colors.white12),
-                        Column(children: [
-                          Text('${_routeWaypoints.length}', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('Stops', style: GoogleFonts.inter(color: Colors.white38, fontSize: 10)),
-                        ]),
-                      ]),
-                    )),
-                ]),
+                ),
               ),
             ),
         ],
@@ -1001,6 +1084,40 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           border: Border.all(color: Colors.white.withOpacity(0.12)),
         ),
         child: Icon(icon, color: color ?? Colors.white.withOpacity(0.7), size: 22),
+      ),
+    );
+  }
+
+  Widget _routeSlot({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool hasValue,
+    required VoidCallback onTap,
+    VoidCallback? onRemove,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: hasValue ? color.withOpacity(0.08) : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: hasValue ? color.withOpacity(0.3) : Colors.white.withOpacity(0.08)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label, style: GoogleFonts.inter(
+            color: hasValue ? Colors.white : Colors.white38,
+            fontSize: 14, fontWeight: hasValue ? FontWeight.w500 : FontWeight.normal),
+            overflow: TextOverflow.ellipsis)),
+          if (onRemove != null)
+            GestureDetector(onTap: onRemove,
+              child: const Icon(Icons.close, color: Colors.white24, size: 18)),
+          if (!hasValue)
+            Icon(Icons.arrow_forward_ios, color: Colors.white.withOpacity(0.2), size: 14),
+        ]),
       ),
     );
   }
