@@ -12,7 +12,20 @@
           "package_name": "com.travelbuddy.travel_buddy"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "756568280634-vubfcel9prnnp5vofrq1jl2i331rq4cm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.travelbuddy.travel_buddy",
+            "certificate_hash": "bb35147343d47d53a5827bb5794ffa3be9ccf13e"
+          }
+        },
+        {
+          "client_id": "756568280634-m9oc30lb0isupsgdb1k27gh2g8vs1l6t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB-oM-WOixTODBxpXz7RgmFGB8RMVlnowc"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "756568280634-m9oc30lb0isupsgdb1k27gh2g8vs1l6t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
