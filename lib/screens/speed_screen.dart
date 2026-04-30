@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:math' as math;
 import '../services/location_service.dart';
 
 class SpeedScreen extends StatefulWidget {
