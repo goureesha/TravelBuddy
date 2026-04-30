@@ -24,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _pages = const [
     _DashboardTab(),
     LiveMapScreen(),
+    BlogScreen(),
     TeamsScreen(),
     FuelTrackScreen(),
   ];
@@ -57,6 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icon(Icons.map_outlined),
               selectedIcon: Icon(Icons.map_rounded),
               label: 'Map',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_stories_outlined),
+              selectedIcon: Icon(Icons.auto_stories_rounded),
+              label: 'Post',
             ),
             NavigationDestination(
               icon: Icon(Icons.people_outline),
@@ -163,13 +169,6 @@ class _DashboardTab extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 _quickAction(
-                  Icons.auto_stories_rounded,
-                  'Blog',
-                  const Color(0xFF9C27B0),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen())),
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
                   Icons.account_balance_wallet_rounded,
                   'Expenses',
                   const Color(0xFFFF6D00),
@@ -193,8 +192,6 @@ class _DashboardTab extends StatelessWidget {
                   const Color(0xFF26A69A),
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChecklistScreen())),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(child: SizedBox()), // placeholder for alignment
               ],
             ),
             const SizedBox(height: 28),
