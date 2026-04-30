@@ -21,13 +21,10 @@ android {
 
     signingConfigs {
         ciRelease {
-            def keystoreFile = file("travelbuddy-debug.jks")
-            if (keystoreFile.exists()) {
-                storeFile keystoreFile
-                storePassword "travelbuddy123"
-                keyAlias "travelbuddy"
-                keyPassword "travelbuddy123"
-            }
+            storeFile file("travelbuddy-ci.jks")
+            storePassword "travelbuddy123"
+            keyAlias "travelbuddy"
+            keyPassword "travelbuddy123"
         }
     }
 
@@ -42,12 +39,7 @@ android {
 
     buildTypes {
         release {
-            def ciKeystore = file("travelbuddy-debug.jks")
-            if (ciKeystore.exists()) {
-                signingConfig = signingConfigs.ciRelease
-            } else {
-                signingConfig = signingConfigs.debug
-            }
+            signingConfig = signingConfigs.ciRelease
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

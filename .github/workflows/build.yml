@@ -28,22 +28,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Create signing keystore
-        run: |
-          keytool -genkeypair -v \
-            -keystore android/app/travelbuddy-debug.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias travelbuddy \
-            -storepass travelbuddy123 \
-            -keypass travelbuddy123 \
-            -dname "CN=Travel Buddy,OU=Dev,O=TravelBuddy,L=Bangalore,ST=Karnataka,C=IN"
-
-      - name: Print SHA-1 fingerprint
-        run: |
-          echo "=== SHA-1 FINGERPRINT (add this to Firebase Console) ==="
-          keytool -list -v -keystore android/app/travelbuddy-debug.jks -alias travelbuddy -storepass travelbuddy123 | grep SHA1
-          echo "========================================================="
-
       - name: Build Release APK
         run: flutter build apk --release --split-per-abi
 
