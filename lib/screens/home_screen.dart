@@ -163,31 +163,6 @@ class _DashboardTab extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 _quickAction(
-                  Icons.local_gas_station_rounded,
-                  'Fuel Track',
-                  const Color(0xFFFF6D00),
-                  () {
-                    // Navigate to Fuel tab
-                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
-                    homeState?.setState(() => homeState._currentIndex = 3);
-                  },
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.group_add_rounded,
-                  'Teams',
-                  const Color(0xFF1A73E8),
-                  () {
-                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
-                    homeState?.setState(() => homeState._currentIndex = 2);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
                   Icons.auto_stories_rounded,
                   'Blog',
                   const Color(0xFF9C27B0),
@@ -195,36 +170,16 @@ class _DashboardTab extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 _quickAction(
-                  Icons.map_rounded,
-                  'Live Map',
-                  const Color(0xFF2196F3),
-                  () {
-                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
-                    homeState?.setState(() => homeState._currentIndex = 1);
-                  },
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.add_location_alt_rounded,
-                  'POI',
+                  Icons.account_balance_wallet_rounded,
+                  'Expenses',
                   const Color(0xFFFF6D00),
-                  () {
-                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
-                    homeState?.setState(() => homeState._currentIndex = 1);
-                  },
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpenseScreen())),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                _quickAction(
-                  Icons.account_balance_wallet_rounded,
-                  'Expenses',
-                  const Color(0xFF9C27B0),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpenseScreen())),
-                ),
-                const SizedBox(width: 12),
                 _quickAction(
                   Icons.sos_rounded,
                   'SOS',
@@ -238,6 +193,8 @@ class _DashboardTab extends StatelessWidget {
                   const Color(0xFF26A69A),
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChecklistScreen())),
                 ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()), // placeholder for alignment
               ],
             ),
             const SizedBox(height: 28),
