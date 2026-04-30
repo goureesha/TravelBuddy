@@ -15,7 +15,9 @@ void main() async {
   // GoogleSignIn.initialize() can hang on web — only init on mobile
   if (!kIsWeb) {
     try {
-      await GoogleSignIn.instance.initialize();
+      await GoogleSignIn.instance.initialize(
+        serverClientId: '756568280634-m9oc30lb0isupsgdb1k27gh2g8vs1l6t.apps.googleusercontent.com',
+      );
     } catch (_) {}
   }
 
