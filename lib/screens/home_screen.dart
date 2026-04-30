@@ -7,6 +7,9 @@ import 'live_map_screen.dart';
 import 'fuel_track_screen.dart';
 import 'speed_screen.dart';
 import 'blog_screen.dart';
+import 'expense_screen.dart';
+import 'sos_screen.dart';
+import 'checklist_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -73,6 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -92,7 +96,8 @@ class _DashboardTab extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -204,6 +209,31 @@ class _DashboardTab extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _quickAction(
+                  Icons.account_balance_wallet_rounded,
+                  'Expenses',
+                  const Color(0xFF9C27B0),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpenseScreen())),
+                ),
+                const SizedBox(width: 12),
+                _quickAction(
+                  Icons.sos_rounded,
+                  'SOS',
+                  const Color(0xFFE53935),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SosScreen())),
+                ),
+                const SizedBox(width: 12),
+                _quickAction(
+                  Icons.checklist_rounded,
+                  'Checklist',
+                  const Color(0xFF26A69A),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChecklistScreen())),
+                ),
+              ],
+            ),
             const SizedBox(height: 28),
             // Stats cards
             Text(
@@ -231,6 +261,7 @@ class _DashboardTab extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );
@@ -375,6 +406,7 @@ class _ProfileTab extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
