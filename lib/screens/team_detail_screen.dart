@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/team_service.dart';
+import 'team_chat_screen.dart';
 
 class TeamDetailScreen extends StatelessWidget {
   final String teamId;
@@ -175,6 +176,21 @@ class TeamDetailScreen extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TeamChatScreen(
+                    teamId: teamId,
+                    teamName: teamName,
+                  ),
+                ),
+              );
+            },
+            backgroundColor: const Color(0xFF1A73E8),
+            child: const Icon(Icons.chat_rounded, color: Colors.white),
           ),
         );
       },
