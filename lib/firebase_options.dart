@@ -25,13 +25,13 @@ class DefaultFirebaseOptions {
     appId: '1:756568280634:web:42d3a074de52504411ef03',
   );
 
-  // Android uses google-services.json automatically, but we provide fallback
+  // Android config from google-services.json
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAgpz59JuRQ88eW9v1lLRLtHn99d75AtnY',
+    apiKey: 'AIzaSyB-oM-WOixTODBxpXz7RgmFGB8RMVlnowc',
     projectId: 'travel-buddy-4b0a2',
     storageBucket: 'travel-buddy-4b0a2.firebasestorage.app',
     messagingSenderId: '756568280634',
-    appId: '1:756568280634:web:42d3a074de52504411ef03',
+    appId: '1:756568280634:android:434b11f08f7adcd011ef03',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
