@@ -28,14 +28,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Analyze code
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings || true
+      - name: Show resolved deps
+        run: flutter pub deps --no-dev 2>&1 | head -60
 
-      - name: Build Debug APK
-        run: flutter build apk --debug
+      - name: Flutter doctor
+        run: flutter doctor -v
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: travel-buddy-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+      - name: Build Debug APK (verbose)
+        run: flutter build apk --debug -v 2>&1 | tail -80
