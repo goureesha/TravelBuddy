@@ -6,6 +6,7 @@ import 'teams_screen.dart';
 import 'live_map_screen.dart';
 import 'fuel_track_screen.dart';
 import 'speed_screen.dart';
+import 'blog_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -168,6 +169,37 @@ class _DashboardTab extends StatelessWidget {
                   () {
                     final homeState = context.findAncestorStateOfType<_HomeScreenState>();
                     homeState?.setState(() => homeState._currentIndex = 2);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _quickAction(
+                  Icons.auto_stories_rounded,
+                  'Blog',
+                  const Color(0xFF9C27B0),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen())),
+                ),
+                const SizedBox(width: 12),
+                _quickAction(
+                  Icons.map_rounded,
+                  'Live Map',
+                  const Color(0xFF2196F3),
+                  () {
+                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                    homeState?.setState(() => homeState._currentIndex = 1);
+                  },
+                ),
+                const SizedBox(width: 12),
+                _quickAction(
+                  Icons.add_location_alt_rounded,
+                  'POI',
+                  const Color(0xFFFF6D00),
+                  () {
+                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                    homeState?.setState(() => homeState._currentIndex = 1);
                   },
                 ),
               ],

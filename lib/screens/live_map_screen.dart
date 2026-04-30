@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/location_service.dart';
 import '../services/team_service.dart';
+import '../services/poi_service.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -60,6 +61,123 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void dispose() {
     LocationService.stopBroadcasting();
     super.dispose();
+  }
+
+  void _showAddPoiDialog() {
+    if (_activeTeamId == null || _myLocation == null) return;
+    final titleCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    String selectedCategory = 'food';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2128),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Add POI', style: GoogleFonts.inter(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  style: GoogleFonts.inter(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    labelStyle: GoogleFonts.inter(color: Colors.white38),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.06),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: PoiService.categories.entries.map((e) {
+                    final isSelected = selectedCategory == e.key;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedCategory = e.key),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFFF6D00).withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isSelected ? const Color(0xFFFF6D00) : Colors.transparent),
+                        ),
+                        child: Text('${e.value} ${e.key}', style: GoogleFonts.inter(color: Colors.white, fontSize: 12)),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesCtrl,
+                  style: GoogleFonts.inter(color: Colors.white),
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Notes (optional)',
+                    labelStyle: GoogleFonts.inter(color: Colors.white38),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.06),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: () async {
+                if (titleCtrl.text.trim().isEmpty) return;
+                await PoiService.addPoi(
+                  teamId: _activeTeamId!,
+                  lat: _myLocation!.latitude,
+                  lng: _myLocation!.longitude,
+                  title: titleCtrl.text,
+                  category: selectedCategory,
+                  notes: notesCtrl.text,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: Text('Add', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPoiDetail(String poiId, Map<String, dynamic> data) {
+    final emoji = PoiService.categories[data['category'] ?? 'other'] ?? '📍';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2128),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('$emoji ${data['title'] ?? ''}', style: GoogleFonts.inter(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if ((data['notes'] ?? '').isNotEmpty)
+              Text(data['notes'], style: GoogleFonts.inter(color: Colors.white54)),
+            const SizedBox(height: 8),
+            Text('Added by ${data['addedByName'] ?? 'Unknown'}', style: GoogleFonts.inter(color: Colors.white30, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { PoiService.deletePoi(_activeTeamId!, poiId); Navigator.pop(ctx); },
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
   }
 
   void _toggleSharing() {
@@ -278,6 +396,47 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     ),
                   ],
                 ),
+
+              // POI markers
+              if (_activeTeamId != null)
+                StreamBuilder<QuerySnapshot>(
+                  stream: PoiService.getTeamPois(_activeTeamId!),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const MarkerLayer(markers: []);
+                    final poiMarkers = snapshot.data!.docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final lat = (data['lat'] as num?)?.toDouble() ?? 0;
+                      final lng = (data['lng'] as num?)?.toDouble() ?? 0;
+                      final title = data['title'] as String? ?? '';
+                      final category = data['category'] as String? ?? 'other';
+                      final emoji = PoiService.categories[category] ?? '📍';
+                      return Marker(
+                        point: LatLng(lat, lng),
+                        width: 80,
+                        height: 48,
+                        child: GestureDetector(
+                          onLongPress: () => _showPoiDetail(doc.id, data),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF161B22).withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFFF6D00).withOpacity(0.4)),
+                                ),
+                                child: Text(emoji, style: const TextStyle(fontSize: 16)),
+                              ),
+                              Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList();
+                    return MarkerLayer(markers: poiMarkers);
+                  },
+                ),
             ],
           ),
 
@@ -412,6 +571,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
+                // Add POI button
+                if (_activeTeamId != null)
+                  _mapButton(
+                    icon: Icons.add_location_alt_rounded,
+                    color: const Color(0xFFFF6D00),
+                    onTap: () => _showAddPoiDialog(),
+                  ),
                 const Spacer(),
                 // Zoom controls
                 Column(
