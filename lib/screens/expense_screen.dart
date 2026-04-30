@@ -289,6 +289,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   ],
                 );
               },
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddExpense,
         backgroundColor: const Color(0xFF9C27B0),
