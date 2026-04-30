@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -339,54 +341,145 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     });
   }
 
+  /// Search places using Nominatim (free OpenStreetMap geocoder)
+  Future<List<Map<String, dynamic>>> _searchPlaces(String query) async {
+    if (query.trim().length < 3) return [];
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5&addressdetails=1',
+      );
+      final resp = await http.get(url, headers: {'User-Agent': 'TravelBuddy/1.0'});
+      if (resp.statusCode == 200) {
+        final results = json.decode(resp.body) as List;
+        return results.map<Map<String, dynamic>>((r) => {
+          'name': r['display_name'] ?? '',
+          'lat': double.tryParse(r['lat']?.toString() ?? '') ?? 0.0,
+          'lng': double.tryParse(r['lon']?.toString() ?? '') ?? 0.0,
+        }).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   void _showAddWaypointDialog({String label = 'Add Stop'}) {
-    final nameCtrl = TextEditingController();
-    final latCtrl = TextEditingController(text: _myLocation?.latitude.toStringAsFixed(6) ?? '');
-    final lngCtrl = TextEditingController(text: _myLocation?.longitude.toStringAsFixed(6) ?? '');
+    final searchCtrl = TextEditingController();
+    List<Map<String, dynamic>> searchResults = [];
+    bool isSearching = false;
+    String? selectedName;
+    double? selectedLat;
+    double? selectedLng;
+    Timer? debounce;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2128),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(label, style: GoogleFonts.inter(color: Colors.white)),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: nameCtrl, style: GoogleFonts.inter(color: Colors.white),
-            decoration: InputDecoration(labelText: 'Place name', labelStyle: GoogleFonts.inter(color: Colors.white38),
-              filled: true, fillColor: Colors.white.withOpacity(0.06),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: TextField(controller: latCtrl, keyboardType: TextInputType.number,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(labelText: 'Lat', labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
-                filled: true, fillColor: Colors.white.withOpacity(0.06),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
-            const SizedBox(width: 8),
-            Expanded(child: TextField(controller: lngCtrl, keyboardType: TextInputType.number,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(labelText: 'Lng', labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
-                filled: true, fillColor: Colors.white.withOpacity(0.06),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
-          ]),
-          const SizedBox(height: 8),
-          Align(alignment: Alignment.centerLeft,
-            child: TextButton.icon(icon: const Icon(Icons.my_location, size: 16, color: Color(0xFF00BFA5)),
-              label: Text('Use my location', style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 12)),
-              onPressed: () { if (_myLocation != null) { latCtrl.text = _myLocation!.latitude.toStringAsFixed(6); lngCtrl.text = _myLocation!.longitude.toStringAsFixed(6); } })),
-        ])),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            onPressed: () {
-              final lat = double.tryParse(latCtrl.text); final lng = double.tryParse(lngCtrl.text);
-              if (lat == null || lng == null) return;
-              _addWaypoint(nameCtrl.text.isEmpty ? 'Stop ${_routeWaypoints.length + 1}' : nameCtrl.text, lat, lng);
-              Navigator.pop(ctx);
-            },
-            child: Text('Add', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold))),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2128),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(label, style: GoogleFonts.inter(color: Colors.white)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Search field
+              TextField(
+                controller: searchCtrl,
+                style: GoogleFonts.inter(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search a place...',
+                  hintStyle: GoogleFonts.inter(color: Colors.white24),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                  suffixIcon: isSearching
+                    ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00BFA5))))
+                    : null,
+                  filled: true, fillColor: Colors.white.withOpacity(0.06),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+                onChanged: (val) {
+                  debounce?.cancel();
+                  debounce = Timer(const Duration(milliseconds: 500), () async {
+                    if (val.trim().length < 3) { setDlgState(() => searchResults = []); return; }
+                    setDlgState(() => isSearching = true);
+                    final results = await _searchPlaces(val);
+                    setDlgState(() { searchResults = results; isSearching = false; });
+                  });
+                },
+              ),
+              // Search results
+              if (searchResults.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: searchResults.length,
+                    itemBuilder: (_, i) {
+                      final r = searchResults[i];
+                      final isSelected = selectedLat == r['lat'] && selectedLng == r['lng'];
+                      return ListTile(
+                        dense: true,
+                        leading: Icon(Icons.location_on, size: 18,
+                          color: isSelected ? const Color(0xFF00BFA5) : Colors.white30),
+                        title: Text(r['name'], style: GoogleFonts.inter(
+                          color: isSelected ? const Color(0xFF00BFA5) : Colors.white70, fontSize: 12),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                        trailing: isSelected ? const Icon(Icons.check_circle, color: Color(0xFF00BFA5), size: 18) : null,
+                        onTap: () {
+                          setDlgState(() {
+                            selectedName = (r['name'] as String).split(',').first;
+                            selectedLat = r['lat']; selectedLng = r['lng'];
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              // Selected place info
+              if (selectedName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFF00BFA5).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.check_circle, color: Color(0xFF00BFA5), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(selectedName!, style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+                    ]),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              // Use my location fallback
+              Align(alignment: Alignment.centerLeft,
+                child: TextButton.icon(icon: const Icon(Icons.my_location, size: 16, color: Color(0xFF00BFA5)),
+                  label: Text('Use my location', style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 12)),
+                  onPressed: () {
+                    if (_myLocation != null) {
+                      setDlgState(() {
+                        selectedName = 'My Location';
+                        selectedLat = _myLocation!.latitude;
+                        selectedLng = _myLocation!.longitude;
+                      });
+                    }
+                  })),
+            ])),
+          ),
+          actions: [
+            TextButton(onPressed: () { debounce?.cancel(); Navigator.pop(ctx); },
+              child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: selectedLat != null && selectedLng != null ? () {
+                _addWaypoint(selectedName ?? 'Stop ${_routeWaypoints.length + 1}', selectedLat!, selectedLng!);
+                debounce?.cancel();
+                Navigator.pop(ctx);
+              } : null,
+              child: Text('Add', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold))),
+          ],
+        ),
       ),
     );
   }
