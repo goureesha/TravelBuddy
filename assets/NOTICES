@@ -5422,6 +5422,7 @@ cross_file
 file_selector_platform_interface
 flutter_plugin_android_lifecycle
 google_fonts
+google_sign_in_android
 image_picker_platform_interface
 path_provider_android
 
@@ -8119,7 +8120,6 @@ file_selector_windows
 flutter_lints
 google_identity_services_web
 google_sign_in
-google_sign_in_android
 google_sign_in_ios
 google_sign_in_platform_interface
 google_sign_in_web
