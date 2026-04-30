@@ -54,7 +54,7 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
               'Team Chat',
               style: GoogleFonts.inter(
                 fontSize: 12,
-                color: Colors.white40,
+                color: Colors.white.withOpacity(0.4),
               ),
             ),
           ],
@@ -82,11 +82,11 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
                         const SizedBox(height: 12),
                         Text(
                           'No messages yet',
-                          style: GoogleFonts.inter(color: Colors.white40),
+                          style: GoogleFonts.inter(color: Colors.white.withOpacity(0.4)),
                         ),
                         Text(
                           'Say hello to your team!',
-                          style: GoogleFonts.inter(color: Colors.white24, fontSize: 13),
+                          style: GoogleFonts.inter(color: Colors.white.withOpacity(0.24), fontSize: 13),
                         ),
                       ],
                     ),
@@ -137,7 +137,7 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      hintStyle: GoogleFonts.inter(color: Colors.white24),
+                      hintStyle: GoogleFonts.inter(color: Colors.white.withOpacity(0.24)),
                       filled: true,
                       fillColor: Colors.white.withOpacity(0.06),
                       border: OutlineInputBorder(
@@ -203,11 +203,11 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
                       backgroundImage: senderPhoto.isNotEmpty
                           ? NetworkImage(senderPhoto)
                           : null,
-                      backgroundColor: Colors.white12,
+                      backgroundColor: Colors.white.withOpacity(0.12),
                       child: senderPhoto.isEmpty
                           ? Text(
                               senderName[0].toUpperCase(),
-                              style: const TextStyle(fontSize: 11, color: Colors.white60),
+                              style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6)),
                             )
                           : null,
                     )
@@ -261,7 +261,7 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
                     time,
                     style: GoogleFonts.inter(
                       fontSize: 10,
-                      color: Colors.white30,
+                      color: Colors.white.withOpacity(0.3),
                     ),
                   ),
                 ],

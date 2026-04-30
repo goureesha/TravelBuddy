@@ -116,7 +116,7 @@ class _SplashScreenState extends State<SplashScreen>
                         'Explore Together',
                         style: GoogleFonts.inter(
                           fontSize: 16,
-                          color: Colors.white54,
+                          color: Colors.white.withOpacity(0.54),
                           letterSpacing: 2,
                         ),
                       ),

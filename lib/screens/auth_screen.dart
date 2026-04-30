@@ -17,16 +17,17 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
+      final googleUser = await GoogleSignIn.instance.authenticate();
       if (googleUser == null) {
         setState(() => _isLoading = false);
         return;
       }
 
-      final googleAuth = await googleUser.authentication;
+      // Get auth tokens
+      final authentication = await googleUser.authentication;
+
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+        idToken: authentication.idToken,
       );
       await FirebaseAuth.instance.signInWithCredential(credential);
 
@@ -101,7 +102,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 16,
-                    color: Colors.white60,
+                    color: Colors.white.withOpacity(0.6),
                     height: 1.5,
                   ),
                 ),
@@ -168,7 +169,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   'By signing in, you agree to our Terms & Privacy Policy',
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: Colors.white30,
+                    color: Colors.white.withOpacity(0.3),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -187,7 +188,7 @@ class _AuthScreenState extends State<AuthScreen> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -198,7 +199,7 @@ class _AuthScreenState extends State<AuthScreen> {
             label,
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: Colors.white70,
+              color: Colors.white.withOpacity(0.7),
             ),
           ),
         ],

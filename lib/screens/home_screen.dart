@@ -112,7 +112,7 @@ class _DashboardTab extends StatelessWidget {
                         'Ready to explore?',
                         style: GoogleFonts.inter(
                           fontSize: 14,
-                          color: Colors.white54,
+                          color: Colors.white.withOpacity(0.54),
                         ),
                       ),
                     ],
@@ -127,7 +127,7 @@ class _DashboardTab extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white70,
+                color: Colors.white.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 12),
@@ -162,7 +162,7 @@ class _DashboardTab extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white70,
+                color: Colors.white.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 12),
@@ -206,7 +206,7 @@ class _DashboardTab extends StatelessWidget {
                 label,
                 style: GoogleFonts.inter(
                   fontSize: 12,
-                  color: Colors.white70,
+                  color: Colors.white.withOpacity(0.7),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -223,11 +223,11 @@ class _DashboardTab extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white30, size: 20),
+          Icon(icon, color: Colors.white.withOpacity(0.3), size: 20),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +244,7 @@ class _DashboardTab extends StatelessWidget {
                 label,
                 style: GoogleFonts.inter(
                   fontSize: 12,
-                  color: Colors.white40,
+                  color: Colors.white.withOpacity(0.4),
                 ),
               ),
             ],
@@ -297,7 +297,7 @@ class _ProfileTab extends StatelessWidget {
               user?.email ?? '',
               style: GoogleFonts.inter(
                 fontSize: 14,
-                color: Colors.white54,
+                color: Colors.white.withOpacity(0.54),
               ),
             ),
             const SizedBox(height: 32),

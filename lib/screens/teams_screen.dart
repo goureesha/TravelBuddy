@@ -45,7 +45,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
             const SizedBox(height: 8),
             Text(
               'Give your travel team a name',
-              style: GoogleFonts.inter(color: Colors.white54),
+              style: GoogleFonts.inter(color: Colors.white.withOpacity(0.54)),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -54,14 +54,14 @@ class _TeamsScreenState extends State<TeamsScreen> {
               style: GoogleFonts.inter(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'e.g. Road Trip Squad',
-                hintStyle: GoogleFonts.inter(color: Colors.white30),
+                hintStyle: GoogleFonts.inter(color: Colors.white.withOpacity(0.3)),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.06),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(Icons.group_rounded, color: Colors.white30),
+                prefixIcon: Icon(Icons.group_rounded, color: Colors.white.withOpacity(0.3)),
               ),
             ),
             const SizedBox(height: 20),
@@ -136,7 +136,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
             const SizedBox(height: 8),
             Text(
               'Enter the 6-character invite code',
-              style: GoogleFonts.inter(color: Colors.white54),
+              style: GoogleFonts.inter(color: Colors.white.withOpacity(0.54)),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -155,7 +155,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
                 counterText: '',
                 hintText: '------',
                 hintStyle: GoogleFonts.inter(
-                  color: Colors.white20,
+                  color: Colors.white.withOpacity(0.2),
                   fontSize: 24,
                   letterSpacing: 8,
                 ),
@@ -286,7 +286,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -297,7 +297,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
               label,
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: Colors.white70,
+                color: Colors.white.withOpacity(0.7),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -333,7 +333,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
             ],
           ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,7 +377,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
                         '${members.length} member${members.length == 1 ? '' : 's'}${isAdmin ? ' · Admin' : ''}',
                         style: GoogleFonts.inter(
                           fontSize: 13,
-                          color: Colors.white40,
+                          color: Colors.white.withOpacity(0.4),
                         ),
                       ),
                     ],
@@ -437,11 +437,11 @@ class _TeamsScreenState extends State<TeamsScreen> {
                       backgroundImage: (photo != null && photo.isNotEmpty)
                           ? NetworkImage(photo)
                           : null,
-                      backgroundColor: Colors.white12,
+                      backgroundColor: Colors.white.withOpacity(0.12),
                       child: (photo == null || photo.isEmpty)
                           ? Text(
                               name[0].toUpperCase(),
-                              style: const TextStyle(fontSize: 12, color: Colors.white60),
+                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
                             )
                           : null,
                     ),
@@ -467,14 +467,14 @@ class _TeamsScreenState extends State<TeamsScreen> {
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: Colors.white54,
+              color: Colors.white.withOpacity(0.54),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a team or join one\nwith an invite code',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: Colors.white30),
+            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.3)),
           ),
           const SizedBox(height: 24),
           Row(

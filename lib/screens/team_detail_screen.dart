@@ -86,9 +86,9 @@ class TeamDetailScreen extends StatelessWidget {
                             builder: (ctx) => AlertDialog(
                               backgroundColor: const Color(0xFF1C2128),
                               title: const Text('Delete Team?', style: TextStyle(color: Colors.white)),
-                              content: const Text(
+                              content: Text(
                                 'This will permanently delete the team for all members.',
-                                style: TextStyle(color: Colors.white60),
+                                style: TextStyle(color: Colors.white.withOpacity(0.6)),
                               ),
                               actions: [
                                 TextButton(
@@ -126,7 +126,7 @@ class TeamDetailScreen extends StatelessWidget {
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white70,
+                      color: Colors.white.withOpacity(0.7),
                     ),
                   ),
                 ),
@@ -210,7 +210,7 @@ class TeamDetailScreen extends StatelessWidget {
         children: [
           Text(
             'Invite Code',
-            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.54), fontSize: 13),
           ),
           const SizedBox(height: 8),
           Text(
@@ -239,8 +239,8 @@ class TeamDetailScreen extends StatelessWidget {
                   icon: const Icon(Icons.copy_rounded, size: 18),
                   label: const Text('Copy'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white24),
+                    foregroundColor: Colors.white.withOpacity(0.7),
+                    side: BorderSide(color: Colors.white.withOpacity(0.24)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -298,11 +298,11 @@ class TeamDetailScreen extends StatelessWidget {
           CircleAvatar(
             radius: 22,
             backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-            backgroundColor: Colors.white12,
+            backgroundColor: Colors.white.withOpacity(0.12),
             child: photoUrl.isEmpty
                 ? Text(
                     name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(color: Colors.white60),
+                    style: TextStyle(color: Colors.white.withOpacity(0.6)),
                   )
                 : null,
           ),
@@ -326,7 +326,7 @@ class TeamDetailScreen extends StatelessWidget {
                         ' (You)',
                         style: GoogleFonts.inter(
                           fontSize: 13,
-                          color: Colors.white40,
+                          color: Colors.white.withOpacity(0.4),
                         ),
                       ),
                   ],
@@ -335,7 +335,7 @@ class TeamDetailScreen extends StatelessWidget {
                   email,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: Colors.white40,
+                    color: Colors.white.withOpacity(0.4),
                   ),
                 ),
               ],

@@ -94,7 +94,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                       child: Center(
                         child: Text(
                           'No teams yet. Create one first!',
-                          style: GoogleFonts.inter(color: Colors.white54),
+                          style: GoogleFonts.inter(color: Colors.white.withOpacity(0.54)),
                         ),
                       ),
                     )
@@ -129,7 +129,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         ),
                         subtitle: Text(
                           '${members.length} members',
-                          style: GoogleFonts.inter(color: Colors.white40, fontSize: 12),
+                          style: GoogleFonts.inter(color: Colors.white.withOpacity(0.4), fontSize: 12),
                         ),
                         onTap: () {
                           setState(() {
@@ -265,13 +265,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF161B22).withOpacity(0.9),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(color: Colors.white.withOpacity(0.12)),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 _isSharing ? Icons.sensors_rounded : Icons.sensors_off_rounded,
-                                color: _isSharing ? const Color(0xFF00BFA5) : Colors.white30,
+                                color: _isSharing ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.3),
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -293,13 +293,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                                       _isSharing ? 'Sharing location...' : 'Not sharing',
                                       style: GoogleFonts.inter(
                                         fontSize: 11,
-                                        color: _isSharing ? const Color(0xFF00BFA5) : Colors.white40,
+                                        color: _isSharing ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.4),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.arrow_drop_down, color: Colors.white30),
+                              Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.3)),
                             ],
                           ),
                         ),
@@ -322,7 +322,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 // Follow me button
                 _mapButton(
                   icon: _followMe ? Icons.my_location_rounded : Icons.location_searching_rounded,
-                  color: _followMe ? const Color(0xFF1A73E8) : Colors.white54,
+                  color: _followMe ? const Color(0xFF1A73E8) : Colors.white.withOpacity(0.54),
                   onTap: () async {
                     setState(() => _followMe = true);
                     final pos = await LocationService.getCurrentPosition();
@@ -474,8 +474,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           ),
           child: Text(
             isMe ? 'You' : name.split(' ').first,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
               fontSize: 10,
               fontWeight: FontWeight.w500,
             ),
@@ -498,9 +498,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF161B22).withOpacity(0.9),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
         ),
-        child: Icon(icon, color: color ?? Colors.white70, size: 22),
+        child: Icon(icon, color: color ?? Colors.white.withOpacity(0.7), size: 22),
       ),
     );
   }
