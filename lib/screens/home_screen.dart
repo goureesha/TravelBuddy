@@ -26,7 +26,6 @@ class _HomeScreenState extends State<HomeScreen> {
     LiveMapScreen(),
     TeamsScreen(),
     FuelTrackScreen(),
-    _ProfileTab(),
   ];
 
   @override
@@ -68,11 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icon(Icons.local_gas_station_outlined),
               selectedIcon: Icon(Icons.local_gas_station_rounded),
               label: 'Fuel',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
             ),
           ],
         ),
@@ -131,6 +125,19 @@ class _DashboardTab extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                // Profile icon
+                GestureDetector(
+                  onTap: () => _showProfileSheet(context),
+                  child: Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    ),
+                    child: Icon(Icons.person_rounded, color: Colors.white.withOpacity(0.7), size: 22),
                   ),
                 ),
               ],
@@ -332,81 +339,57 @@ class _DashboardTab extends StatelessWidget {
       ),
     );
   }
+
+  static void _showProfileSheet(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+          CircleAvatar(
+            radius: 40,
+            backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+            child: user?.photoURL == null ? const Icon(Icons.person, size: 36) : null,
+          ),
+          const SizedBox(height: 14),
+          Text(user?.displayName ?? 'Traveler',
+            style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
+          const SizedBox(height: 4),
+          Text(user?.email ?? '',
+            style: GoogleFonts.inter(fontSize: 14, color: Colors.white.withOpacity(0.54))),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (!context.mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  (route) => false,
+                );
+              },
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Sign Out'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 // Map tab now uses LiveMapScreen from live_map_screen.dart
 
 // Teams tab now uses TeamsScreen from teams_screen.dart
-
-// ══════════════════════════════════════
-// TAB: Profile
-// ══════════════════════════════════════
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            CircleAvatar(
-              radius: 48,
-              backgroundImage: user?.photoURL != null
-                  ? NetworkImage(user!.photoURL!)
-                  : null,
-              child: user?.photoURL == null
-                  ? const Icon(Icons.person, size: 40)
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              user?.displayName ?? 'Traveler',
-              style: GoogleFonts.inter(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            Text(
-              user?.email ?? '',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.white.withOpacity(0.54),
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Sign out
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
-                  if (!context.mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const AuthScreen()),
-                    (route) => false,
-                  );
-                },
-                icon: const Icon(Icons.logout_rounded),
-                label: const Text('Sign Out'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  side: const BorderSide(color: Colors.redAccent),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
