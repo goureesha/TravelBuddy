@@ -76,7 +76,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        ),
       ),
     );
   }
@@ -406,7 +405,6 @@ class _ProfileTab extends StatelessWidget {
               ),
             ),
           ],
-        ),
         ),
       ),
     );
