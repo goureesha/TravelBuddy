@@ -24,15 +24,19 @@ class _AuthScreenState extends State<AuthScreen> {
         provider.addScope('email');
         await FirebaseAuth.instance.signInWithPopup(provider);
       } else {
-        // Mobile: use GoogleSignIn v7
-        final googleUser = await GoogleSignIn.instance.authenticate();
+        // Mobile: use GoogleSignIn v6 API
+        final GoogleSignIn googleSignIn = GoogleSignIn(
+          scopes: ['email'],
+        );
+        final googleUser = await googleSignIn.signIn();
         if (googleUser == null) {
           setState(() => _isLoading = false);
           return;
         }
-        final authentication = await googleUser.authentication;
+        final googleAuth = await googleUser.authentication;
         final credential = GoogleAuthProvider.credential(
-          idToken: authentication.idToken,
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
       }

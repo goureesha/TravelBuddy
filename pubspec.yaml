@@ -19,7 +19,7 @@ dependencies:
   firebase_messaging: any
 
   # Auth
-  google_sign_in: any
+  google_sign_in: ^6.2.1
 
   # Maps & Location
   flutter_map: any

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
@@ -11,16 +9,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // GoogleSignIn.initialize() can hang on web — only init on mobile
-  if (!kIsWeb) {
-    try {
-      await GoogleSignIn.instance.initialize(
-        serverClientId: '756568280634-m9oc30lb0isupsgdb1k27gh2g8vs1l6t.apps.googleusercontent.com',
-      );
-    } catch (_) {}
-  }
-
   runApp(const TravelBuddyApp());
 }
 
