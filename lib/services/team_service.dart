@@ -82,7 +82,6 @@ class TeamService {
     return _firestore
         .collection('teams')
         .where('members', arrayContains: _uid)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
