@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'auth_screen.dart';
+import 'teams_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _pages = const [
     _DashboardTab(),
     _MapTab(),
-    _TeamsTab(),
+    TeamsScreen(),
     _ProfileTab(),
   ];
 
@@ -275,27 +276,7 @@ class _MapTab extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════
-// TAB: Teams (placeholder)
-// ══════════════════════════════════════
-class _TeamsTab extends StatelessWidget {
-  const _TeamsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.people_rounded, size: 64, color: Colors.white24),
-          SizedBox(height: 16),
-          Text('Your Teams', style: TextStyle(color: Colors.white54, fontSize: 18)),
-          Text('Coming in Sprint 2', style: TextStyle(color: Colors.white30)),
-        ],
-      ),
-    );
-  }
-}
+// Teams tab now uses TeamsScreen from teams_screen.dart
 
 // ══════════════════════════════════════
 // TAB: Profile
