@@ -14,7 +14,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
-  static bool _gsInitialized = false;
+  static bool _initialized = false;
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
@@ -25,19 +25,19 @@ class _AuthScreenState extends State<AuthScreen> {
         provider.addScope('email');
         await FirebaseAuth.instance.signInWithPopup(provider);
       } else {
-        // Mobile: use GoogleSignIn v7 API
-        if (!_gsInitialized) {
+        // Mobile: use GoogleSignIn v7 singleton API
+        if (!_initialized) {
           await GoogleSignIn.instance.initialize();
-          _gsInitialized = true;
+          _initialized = true;
         }
-        final googleUser = await GoogleSignIn.instance.authenticate();
-        if (googleUser == null) {
+        final account = await GoogleSignIn.instance.authenticate();
+        if (account == null) {
           setState(() => _isLoading = false);
           return;
         }
-        final googleAuth = await googleUser.authentication;
+        final auth = await account.authentication;
         final credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
+          idToken: auth.idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
       }

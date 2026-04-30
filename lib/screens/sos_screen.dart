@@ -3,8 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/team_service.dart';
-import '../services/location_service.dart';
 
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
