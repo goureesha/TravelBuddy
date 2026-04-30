@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'auth_screen.dart';
 import 'teams_screen.dart';
+import 'live_map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _pages = const [
     _DashboardTab(),
-    _MapTab(),
+    LiveMapScreen(),
     TeamsScreen(),
     _ProfileTab(),
   ];
@@ -254,27 +255,7 @@ class _DashboardTab extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════
-// TAB: Map (placeholder)
-// ══════════════════════════════════════
-class _MapTab extends StatelessWidget {
-  const _MapTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.map_rounded, size: 64, color: Colors.white24),
-          SizedBox(height: 16),
-          Text('Live Map', style: TextStyle(color: Colors.white54, fontSize: 18)),
-          Text('Coming in Sprint 3', style: TextStyle(color: Colors.white30)),
-        ],
-      ),
-    );
-  }
-}
+// Map tab now uses LiveMapScreen from live_map_screen.dart
 
 // Teams tab now uses TeamsScreen from teams_screen.dart
 
