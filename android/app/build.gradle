@@ -19,6 +19,18 @@ android {
         jvmTarget = "17"
     }
 
+    signingConfigs {
+        ciRelease {
+            def keystoreFile = file("travelbuddy-debug.jks")
+            if (keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword "travelbuddy123"
+                keyAlias "travelbuddy"
+                keyPassword "travelbuddy123"
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.travelbuddy.travel_buddy"
         minSdk = 24
@@ -30,7 +42,12 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
+            def ciKeystore = file("travelbuddy-debug.jks")
+            if (ciKeystore.exists()) {
+                signingConfig = signingConfigs.ciRelease
+            } else {
+                signingConfig = signingConfigs.debug
+            }
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
