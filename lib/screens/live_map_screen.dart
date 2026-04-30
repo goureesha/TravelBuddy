@@ -22,6 +22,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   bool _isSharing = false;
   bool _followMe = true;
   LatLng? _myLocation;
+  double _accuracy = 0; // meters
 
   @override
   void initState() {
@@ -34,8 +35,17 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (pos != null && mounted) {
       setState(() {
         _myLocation = LatLng(pos.latitude, pos.longitude);
+        _accuracy = pos.accuracy;
       });
-      _mapController.move(_myLocation!, 14);
+      _mapController.move(_myLocation!, 15);
+      if (_accuracy > 500) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location accuracy: ~${_accuracy.toInt()}m (GPS may be approximate on web)'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -229,6 +239,21 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   },
                 ),
 
+              // My location accuracy circle
+              if (_activeTeamId == null && _myLocation != null && _accuracy > 0)
+                CircleLayer(
+                  circles: [
+                    CircleMarker(
+                      point: _myLocation!,
+                      radius: _accuracy,
+                      useRadiusInMeter: true,
+                      color: const Color(0xFF1A73E8).withOpacity(0.1),
+                      borderColor: const Color(0xFF1A73E8).withOpacity(0.3),
+                      borderStrokeWidth: 1.5,
+                    ),
+                  ],
+                ),
+
               // My location marker (when not sharing with team)
               if (_activeTeamId == null && _myLocation != null)
                 MarkerLayer(
@@ -334,7 +359,10 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     setState(() => _followMe = true);
                     final pos = await LocationService.getCurrentPosition();
                     if (pos != null && mounted) {
-                      _myLocation = LatLng(pos.latitude, pos.longitude);
+                      setState(() {
+                        _myLocation = LatLng(pos.latitude, pos.longitude);
+                        _accuracy = pos.accuracy;
+                      });
                       _mapController.move(_myLocation!, 15);
                     }
                   },
