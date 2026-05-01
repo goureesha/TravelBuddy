@@ -664,10 +664,19 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           Text(place.name, style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center),
           const SizedBox(height: 6),
-          Text(NearbyService.categories[place.category]?['label'] ?? place.category,
+          Text(NearbyService.categories[place.category]?['label']?.toString() ?? place.category,
             style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+          if (place.address != null && place.address!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.location_on, color: Color(0xFFFF6D00), size: 16),
+              const SizedBox(width: 6),
+              Flexible(child: Text(place.address!, style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
+                textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis)),
+            ]),
+          ],
           if (place.openingHours != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.access_time, color: Color(0xFF00BFA5), size: 16),
               const SizedBox(width: 6),
@@ -1144,9 +1153,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                             border: Border.all(color: isActive ? const Color(0xFFFF6D00) : Colors.white.withOpacity(0.1)),
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(cat['emoji'] ?? '', style: const TextStyle(fontSize: 14)),
+                            Text(cat['emoji']?.toString() ?? '', style: const TextStyle(fontSize: 14)),
                             const SizedBox(width: 6),
-                            Text(cat['label'] ?? key, style: GoogleFonts.inter(
+                            Text(cat['label']?.toString() ?? key, style: GoogleFonts.inter(
                               color: isActive ? const Color(0xFFFF6D00) : Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
                             if (isActive && _loadingNearby) ...[
                               const SizedBox(width: 6),
