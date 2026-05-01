@@ -11,6 +11,7 @@ import '../services/location_service.dart';
 import '../services/team_service.dart';
 import '../services/poi_service.dart';
 import '../services/route_service.dart';
+import '../services/nearby_service.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -41,6 +42,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     Color(0xFF9C27B0), Color(0xFFE91E63), Color(0xFFFFEB3B),
     Color(0xFF00E5FF), Color(0xFF76FF03),
   ];
+
+  // Nearby places
+  List<NearbyPlace> _nearbyPlaces = [];
+  Set<String> _activeCategories = {};
+  bool _loadingNearby = false;
+  bool _showNearbyBar = false;
 
   @override
   void initState() {
@@ -611,6 +618,78 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Color _colorForMember(int index) => _memberColors[index % _memberColors.length];
 
   // ════════════════════════════════════
+  // NEARBY PLACES
+  // ════════════════════════════════════
+  Future<void> _toggleCategory(String key) async {
+    if (_activeCategories.contains(key)) {
+      setState(() {
+        _activeCategories.remove(key);
+        _nearbyPlaces.removeWhere((p) => p.category == key);
+      });
+      return;
+    }
+    if (_myLocation == null) return;
+    setState(() { _loadingNearby = true; _activeCategories.add(key); });
+    final places = await NearbyService.fetch(center: _myLocation!, categoryKey: key);
+    if (mounted) {
+      setState(() {
+        _nearbyPlaces.addAll(places);
+        _loadingNearby = false;
+      });
+    }
+  }
+
+  void _showNearbyDetail(NearbyPlace place) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+          Text(place.emoji, style: const TextStyle(fontSize: 36)),
+          const SizedBox(height: 10),
+          Text(place.name, style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          Text(NearbyService.categories[place.category]?['label'] ?? place.category,
+            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+          if (place.openingHours != null) ...[
+            const SizedBox(height: 10),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.access_time, color: Color(0xFF00BFA5), size: 16),
+              const SizedBox(width: 6),
+              Text(place.openingHours!, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+            ]),
+          ],
+          if (place.phone != null) ...[
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.phone, color: Color(0xFF1A73E8), size: 16),
+              const SizedBox(width: 6),
+              Text(place.phone!, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+            ]),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 12)),
+            icon: const Icon(Icons.directions, color: Colors.white, size: 18),
+            label: Text('Set as Destination', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showRoutePlannerSheet();
+            },
+          )),
+        ]),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════
   // BUILD
   // ════════════════════════════════════
   @override
@@ -777,6 +856,23 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         overflow: TextOverflow.ellipsis),
                     ]));
                 }).toList()),
+
+              // ── NEARBY PLACES MARKERS ──
+              if (_nearbyPlaces.isNotEmpty)
+                MarkerLayer(markers: _nearbyPlaces.map((p) {
+                  return Marker(point: p.latLng, width: 80, height: 48,
+                    child: GestureDetector(
+                      onTap: () => _showNearbyDetail(p),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Container(padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: const Color(0xFF161B22).withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white.withOpacity(0.15))),
+                          child: Text(p.emoji, style: const TextStyle(fontSize: 16))),
+                        Text(p.name, style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ])));
+                }).toList()),
             ],
           ),
 
@@ -926,6 +1022,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   color: _routeWaypoints.isNotEmpty ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.54),
                   onTap: _showRoutePlannerSheet,
                 ),
+                const SizedBox(width: 8),
+                // Nearby places button
+                _mapButton(
+                  icon: Icons.near_me_rounded,
+                  color: _showNearbyBar ? const Color(0xFFFF6D00) : Colors.white.withOpacity(0.54),
+                  onTap: () => setState(() => _showNearbyBar = !_showNearbyBar),
+                ),
                 const Spacer(),
                 // Zoom controls
                 Column(
@@ -950,6 +1053,48 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               ],
             ),
           ),
+
+          // ── NEARBY CATEGORY FILTER BAR ──
+          if (_showNearbyBar)
+            Positioned(
+              bottom: 82, left: 0, right: 0,
+              child: SizedBox(
+                height: 42,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: NearbyService.categories.entries.map((e) {
+                    final key = e.key;
+                    final cat = e.value;
+                    final isActive = _activeCategories.contains(key);
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => _toggleCategory(key),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isActive ? const Color(0xFFFF6D00).withOpacity(0.2) : const Color(0xFF161B22).withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: isActive ? const Color(0xFFFF6D00) : Colors.white.withOpacity(0.1)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(cat['emoji'] ?? '', style: const TextStyle(fontSize: 14)),
+                            const SizedBox(width: 6),
+                            Text(cat['label'] ?? key, style: GoogleFonts.inter(
+                              color: isActive ? const Color(0xFFFF6D00) : Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+                            if (isActive && _loadingNearby) ...[
+                              const SizedBox(width: 6),
+                              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFFF6D00))),
+                            ],
+                          ]),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
 
           // ── ROUTE INFO CHIP (when route is active) ──
           if (_routeDistKm > 0 && !_showRoutePanel)
