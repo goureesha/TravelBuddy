@@ -14,6 +14,8 @@ import '../services/team_service.dart';
 import '../services/poi_service.dart';
 import '../services/route_service.dart';
 import '../services/nearby_service.dart';
+import '../services/chat_service.dart';
+import 'team_chat_screen.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -50,6 +52,10 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Set<String> _activeCategories = {};
   bool _loadingNearby = false;
   bool _showNearbyBar = false;
+
+  // Unread messages
+  bool _hasUnreadChat = false;
+  StreamSubscription? _unreadSub;
 
   // Google Maps style
   int _mapTypeIndex = 0;
@@ -99,6 +105,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (_activeTeamId != null) {
       _startTeamLocationListener();
       _startPoiListener();
+      _startUnreadListener();
     }
   }
 
@@ -106,6 +113,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void dispose() {
     LocationService.stopBroadcasting();
     _teamLocationSub?.cancel();
+    _unreadSub?.cancel();
     super.dispose();
   }
 
@@ -323,6 +331,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                           LocationService.startBroadcasting(doc.id);
                           _startTeamLocationListener();
                           _startPoiListener();
+                          _startUnreadListener();
                         },
                       );
                     }),
@@ -993,6 +1002,34 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     )
                   else
                     const Spacer(),
+                  // ── TOP RIGHT ICONS ──
+                  const SizedBox(width: 8),
+                  // Message icon with red dot
+                  if (_activeTeamId != null)
+                    _badgeIcon(
+                      icon: Icons.chat_bubble_rounded,
+                      hasBadge: _hasUnreadChat,
+                      onTap: () {
+                        ChatService.markAsRead(_activeTeamId!);
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => TeamChatScreen(
+                            teamId: _activeTeamId!,
+                            teamName: _activeTeamName ?? 'Team',
+                          ),
+                        ));
+                      },
+                    ),
+                  const SizedBox(width: 8),
+                  // Notification bell
+                  _badgeIcon(
+                    icon: Icons.notifications_rounded,
+                    hasBadge: false,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('No new notifications'), duration: Duration(seconds: 2)),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -1297,6 +1334,53 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         child: Icon(icon, color: color ?? Colors.white.withOpacity(0.7), size: 22),
       ),
     );
+  }
+
+  Widget _badgeIcon({
+    required IconData icon,
+    required bool hasBadge,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFF161B22).withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(icon, color: Colors.white.withOpacity(0.7), size: 22),
+            if (hasBadge)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF161B22), width: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _startUnreadListener() {
+    _unreadSub?.cancel();
+    if (_activeTeamId == null) return;
+    _unreadSub = ChatService.hasUnread(_activeTeamId!).listen((hasUnread) {
+      if (mounted) setState(() => _hasUnreadChat = hasUnread);
+    });
   }
 
   Widget _routeSlot({
