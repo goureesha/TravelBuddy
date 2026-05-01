@@ -49,6 +49,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   bool _loadingNearby = false;
   bool _showNearbyBar = false;
 
+  // Map tile styles
+  int _tileStyleIndex = 0;
+  static const List<Map<String, String>> _tileStyles = [
+    {'name': 'Standard', 'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'icon': '🗺️'},
+    {'name': 'Humanitarian', 'url': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', 'icon': '🛣️'},
+    {'name': 'Topo', 'url': 'https://tile.opentopomap.org/{z}/{x}/{y}.png', 'icon': '🏔️'},
+    {'name': 'Voyager', 'url': 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', 'icon': '🌍'},
+    {'name': 'Dark', 'url': 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'icon': '🌑'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -689,6 +699,53 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     );
   }
 
+  void _showMapStylePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+          Text('Map Style', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('Switch map style for better road & detail coverage',
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+          const SizedBox(height: 16),
+          Wrap(spacing: 10, runSpacing: 10, children: _tileStyles.asMap().entries.map((e) {
+            final i = e.key;
+            final style = e.value;
+            final isActive = _tileStyleIndex == i;
+            return GestureDetector(
+              onTap: () {
+                setState(() => _tileStyleIndex = i);
+                Navigator.pop(ctx);
+              },
+              child: Container(
+                width: (MediaQuery.of(ctx).size.width - 62) / 3,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: isActive ? const Color(0xFF1A73E8).withOpacity(0.2) : Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isActive ? const Color(0xFF1A73E8) : Colors.white.withOpacity(0.08), width: isActive ? 2 : 1),
+                ),
+                child: Column(children: [
+                  Text(style['icon'] ?? '', style: const TextStyle(fontSize: 24)),
+                  const SizedBox(height: 6),
+                  Text(style['name'] ?? '', style: GoogleFonts.inter(
+                    color: isActive ? const Color(0xFF1A73E8) : Colors.white70,
+                    fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
+                ]),
+              ),
+            );
+          }).toList()),
+        ]),
+      ),
+    );
+  }
+
   // ════════════════════════════════════
   // BUILD
   // ════════════════════════════════════
@@ -710,10 +767,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               },
             ),
             children: [
-              // Map tiles (OpenStreetMap)
+              // Map tiles (switchable)
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: _tileStyles[_tileStyleIndex]['url']!,
                 userAgentPackageName: 'com.travelbuddy.travel_buddy',
+                maxZoom: 19,
               ),
 
               // Team member markers (colored per member)
@@ -1047,6 +1105,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         final zoom = _mapController.camera.zoom - 1;
                         _mapController.move(_mapController.camera.center, zoom);
                       },
+                    ),
+                    const SizedBox(height: 8),
+                    // Map style button
+                    _mapButton(
+                      icon: Icons.layers_rounded,
+                      color: const Color(0xFF1A73E8),
+                      onTap: _showMapStylePicker,
                     ),
                   ],
                 ),
