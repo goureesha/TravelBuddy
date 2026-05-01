@@ -95,6 +95,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         ),
       );
     }
+    // Auto-start team listeners if team is already active
+    if (_activeTeamId != null) {
+      _startTeamLocationListener();
+      _startPoiListener();
+    }
   }
 
   @override
