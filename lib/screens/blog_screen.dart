@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -77,6 +78,7 @@ class _BlogScreenState extends State<BlogScreen> {
     final captionCtrl = TextEditingController();
     XFile? pickedImage;
     bool isPosting = false;
+    String? errorMsg;
 
     await showModalBottomSheet(
       context: context,
@@ -110,21 +112,77 @@ class _BlogScreenState extends State<BlogScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              // Image preview
+              if (pickedImage != null)
+                Stack(
+                  children: [
+                    FutureBuilder<Uint8List>(
+                      future: pickedImage!.readAsBytes(),
+                      builder: (ctx, snap) {
+                        if (!snap.hasData) return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(snap.data!, height: 160, width: double.infinity, fit: BoxFit.cover),
+                        );
+                      },
+                    ),
+                    Positioned(top: 6, right: 6, child: GestureDetector(
+                      onTap: () => setModalState(() => pickedImage = null),
+                      child: Container(padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16)),
+                    )),
+                  ],
+                ),
+              if (pickedImage != null) const SizedBox(height: 12),
+              // Error message
+              if (errorMsg != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(errorMsg!, style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 12))),
+                    ]),
+                  ),
+                ),
               Row(
                 children: [
+                  // Gallery button
                   OutlinedButton.icon(
                     onPressed: () async {
                       final picker = ImagePicker();
-                      final img = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200);
+                      final img = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 80);
                       if (img != null) {
-                        setModalState(() => pickedImage = img);
+                        setModalState(() { pickedImage = img; errorMsg = null; });
                       }
                     },
                     icon: const Icon(Icons.photo_library_rounded, size: 18),
-                    label: Text(pickedImage != null ? 'Photo Selected ✓' : 'Add Photo'),
+                    label: const Text('Gallery'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1A73E8),
                       side: BorderSide(color: const Color(0xFF1A73E8).withOpacity(0.3)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Camera button
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picker = ImagePicker();
+                      final img = await picker.pickImage(source: ImageSource.camera, maxWidth: 1200, imageQuality: 80);
+                      if (img != null) {
+                        setModalState(() { pickedImage = img; errorMsg = null; });
+                      }
+                    },
+                    icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                    label: const Text('Camera'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF00BFA5),
+                      side: BorderSide(color: const Color(0xFF00BFA5).withOpacity(0.3)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -133,18 +191,24 @@ class _BlogScreenState extends State<BlogScreen> {
                     onPressed: isPosting
                         ? null
                         : () async {
-                            if (captionCtrl.text.trim().isEmpty) return;
-                            setModalState(() => isPosting = true);
+                            if (captionCtrl.text.trim().isEmpty && pickedImage == null) return;
+                            setModalState(() { isPosting = true; errorMsg = null; });
 
-                            final bytes = pickedImage != null ? await pickedImage!.readAsBytes() : null;
-                            await BlogService.createPost(
-                              teamId: _selectedTeamId,
-                              caption: captionCtrl.text,
-                              imageBytes: bytes,
-                              imageName: pickedImage?.name,
-                            );
-
-                            if (ctx.mounted) Navigator.pop(ctx);
+                            try {
+                              final bytes = pickedImage != null ? await pickedImage!.readAsBytes() : null;
+                              await BlogService.createPost(
+                                teamId: _selectedTeamId,
+                                caption: captionCtrl.text,
+                                imageBytes: bytes,
+                                imageName: pickedImage?.name,
+                              );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            } catch (e) {
+                              setModalState(() {
+                                isPosting = false;
+                                errorMsg = 'Failed to post: ${e.toString().replaceAll('Exception: ', '')}';
+                              });
+                            }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00BFA5),

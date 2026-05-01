@@ -34,15 +34,14 @@ class BlogService {
 
     // Upload image if provided
     if (imageBytes != null && imageName != null) {
-      try {
-        final ref = _storage
-            .ref()
-            .child('$storagePath/blog/${DateTime.now().millisecondsSinceEpoch}_$imageName');
-        await ref.putData(imageBytes);
-        imageUrl = await ref.getDownloadURL();
-      } catch (e) {
-        // Continue without image if upload fails
-      }
+      final ref = _storage
+          .ref()
+          .child('$storagePath/blog/${DateTime.now().millisecondsSinceEpoch}_$imageName');
+      final uploadTask = await ref.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      imageUrl = await ref.getDownloadURL();
     }
 
     final docRef = await _blogRef(teamId).add({
