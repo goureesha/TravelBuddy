@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,7 +23,7 @@ class LiveMapScreen extends StatefulWidget {
 }
 
 class _LiveMapScreenState extends State<LiveMapScreen> {
-  final MapController _mapController = MapController();
+  GoogleMapController? _gMapController;
   String? _activeTeamId;
   String? _activeTeamName;
   bool _isSharing = false;
@@ -49,15 +51,25 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   bool _loadingNearby = false;
   bool _showNearbyBar = false;
 
-  // Map tile styles
-  int _tileStyleIndex = 0;
-  static const List<Map<String, String>> _tileStyles = [
-    {'name': 'Standard', 'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'icon': '🗺️'},
-    {'name': 'Humanitarian', 'url': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', 'icon': '🛣️'},
-    {'name': 'Topo', 'url': 'https://tile.opentopomap.org/{z}/{x}/{y}.png', 'icon': '🏔️'},
-    {'name': 'Voyager', 'url': 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', 'icon': '🌍'},
-    {'name': 'Dark', 'url': 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'icon': '🌑'},
+  // Google Maps style
+  int _mapTypeIndex = 0;
+  static const List<MapType> _mapTypes = [
+    MapType.normal,
+    MapType.satellite,
+    MapType.terrain,
+    MapType.hybrid,
   ];
+  static const List<Map<String, String>> _mapTypeLabels = [
+    {'name': 'Normal', 'icon': '🗺️'},
+    {'name': 'Satellite', 'icon': '🛰️'},
+    {'name': 'Terrain', 'icon': '🏔️'},
+    {'name': 'Hybrid', 'icon': '🌍'},
+  ];
+
+  // Team member tracking
+  StreamSubscription? _teamLocationSub;
+  Set<Marker> _teamMarkers = {};
+  Set<Marker> _poiMarkers = {};
 
   @override
   void initState() {
@@ -72,15 +84,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         _myLocation = LatLng(pos.latitude, pos.longitude);
         _accuracy = pos.accuracy;
       });
-      _mapController.move(_myLocation!, 15);
-      if (_accuracy > 500) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Location accuracy: ~${_accuracy.toInt()}m (GPS may be approximate on web)'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      _gMapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_myLocation!, 15),
+      );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -94,6 +100,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   @override
   void dispose() {
     LocationService.stopBroadcasting();
+    _teamLocationSub?.cancel();
     super.dispose();
   }
 
@@ -306,9 +313,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                             _activeTeamName = data['name'];
                           });
                           Navigator.pop(ctx);
-                          // Auto-start sharing
+                          // Auto-start sharing and listeners
                           setState(() => _isSharing = true);
                           LocationService.startBroadcasting(doc.id);
+                          _startTeamLocationListener();
+                          _startPoiListener();
                         },
                       );
                     }),
@@ -326,12 +335,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   // ════════════════════════════════════
   Future<void> _fetchRoute() async {
     if (_routeWaypoints.length < 2) return;
-    final points = _routeWaypoints.map((w) => LatLng(w['lat'], w['lng'])).toList();
-    final polyline = await RouteService.getDirections(points);
-    final info = await RouteService.getRouteInfo(points);
+    // RouteService uses latlong2.LatLng, convert from google_maps LatLng
+    final llPoints = _routeWaypoints.map((w) => ll.LatLng(w['lat'], w['lng'])).toList();
+    final polyline = await RouteService.getDirections(llPoints);
+    final info = await RouteService.getRouteInfo(llPoints);
     if (mounted) {
       setState(() {
-        _routePolyline = polyline;
+        // Convert latlong2 polyline back to google_maps LatLng
+        _routePolyline = polyline.map((p) => LatLng(p.latitude, p.longitude)).toList();
         _routeDistKm = info['distance'] ?? 0;
         _routeDurMin = info['duration'] ?? 0;
       });
@@ -640,7 +651,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
     if (_myLocation == null) return;
     setState(() { _loadingNearby = true; _activeCategories.add(key); });
-    final places = await NearbyService.fetch(center: _myLocation!, categoryKey: key);
+    final center = ll.LatLng(_myLocation!.latitude, _myLocation!.longitude);
+    final places = await NearbyService.fetch(center: center, categoryKey: key);
     if (mounted) {
       setState(() {
         _nearbyPlaces.addAll(places);
@@ -720,20 +732,20 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
           Text('Map Style', style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('Switch map style for better road & detail coverage',
+          Text('Choose your preferred map view',
             style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
           const SizedBox(height: 16),
-          Wrap(spacing: 10, runSpacing: 10, children: _tileStyles.asMap().entries.map((e) {
+          Wrap(spacing: 10, runSpacing: 10, children: _mapTypeLabels.asMap().entries.map((e) {
             final i = e.key;
             final style = e.value;
-            final isActive = _tileStyleIndex == i;
+            final isActive = _mapTypeIndex == i;
             return GestureDetector(
               onTap: () {
-                setState(() => _tileStyleIndex = i);
+                setState(() => _mapTypeIndex = i);
                 Navigator.pop(ctx);
               },
               child: Container(
-                width: (MediaQuery.of(ctx).size.width - 62) / 3,
+                width: (MediaQuery.of(ctx).size.width - 62) / 2,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   color: isActive ? const Color(0xFF1A73E8).withOpacity(0.2) : Colors.white.withOpacity(0.04),
@@ -756,6 +768,133 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   // ════════════════════════════════════
+  // GOOGLE MAPS BUILDERS
+  // ════════════════════════════════════
+  Set<Marker> _buildAllMarkers() {
+    final markers = <Marker>{};
+
+    // Waypoint markers
+    for (int i = 0; i < _routeWaypoints.length; i++) {
+      final w = _routeWaypoints[i];
+      final isStart = i == 0;
+      final isEnd = i == _routeWaypoints.length - 1;
+      final hue = isStart ? BitmapDescriptor.hueGreen : isEnd ? BitmapDescriptor.hueRed : BitmapDescriptor.hueOrange;
+      markers.add(Marker(
+        markerId: MarkerId('waypoint_$i'),
+        position: LatLng(w['lat'], w['lng']),
+        icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+        infoWindow: InfoWindow(title: w['name'] ?? (isStart ? 'Start' : isEnd ? 'End' : 'Stop')),
+      ));
+    }
+
+    // Nearby place markers
+    for (int i = 0; i < _nearbyPlaces.length; i++) {
+      final p = _nearbyPlaces[i];
+      markers.add(Marker(
+        markerId: MarkerId('nearby_${p.category}_$i'),
+        position: LatLng(p.lat, p.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+        infoWindow: InfoWindow(title: '${p.emoji} ${p.name}', snippet: p.address),
+        onTap: () => _showNearbyDetail(p),
+      ));
+    }
+
+    // Team member markers
+    markers.addAll(_teamMarkers);
+
+    // POI markers
+    markers.addAll(_poiMarkers);
+
+    return markers;
+  }
+
+  Set<Polyline> _buildPolylines() {
+    if (_routePolyline.isEmpty) return {};
+    return {
+      Polyline(
+        polylineId: const PolylineId('route'),
+        points: _routePolyline,
+        width: 5,
+        color: const Color(0xFF1A73E8),
+      ),
+    };
+  }
+
+  Set<Circle> _buildCircles() {
+    if (_myLocation == null || _accuracy <= 0) return {};
+    return {
+      Circle(
+        circleId: const CircleId('accuracy'),
+        center: _myLocation!,
+        radius: _accuracy,
+        fillColor: const Color(0xFF1A73E8).withOpacity(0.1),
+        strokeColor: const Color(0xFF1A73E8).withOpacity(0.3),
+        strokeWidth: 1,
+      ),
+    };
+  }
+
+  void _startTeamLocationListener() {
+    _teamLocationSub?.cancel();
+    if (_activeTeamId == null) return;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    _teamLocationSub = LocationService.getTeamLocations(_activeTeamId!).listen((snapshot) {
+      if (!mounted) return;
+      final markers = <Marker>{};
+      final docs = snapshot.docs;
+      for (int i = 0; i < docs.length; i++) {
+        final doc = docs[i];
+        final data = doc.data() as Map<String, dynamic>;
+        final lat = (data['lat'] as num?)?.toDouble() ?? 0;
+        final lng = (data['lng'] as num?)?.toDouble() ?? 0;
+        final userName = data['userName'] as String? ?? '?';
+        final isMe = doc.id == currentUid;
+
+        if (isMe && _followMe) {
+          _myLocation = LatLng(lat, lng);
+          _gMapController?.animateCamera(CameraUpdate.newLatLng(LatLng(lat, lng)));
+        }
+
+        markers.add(Marker(
+          markerId: MarkerId('member_${doc.id}'),
+          position: LatLng(lat, lng),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isMe ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueCyan,
+          ),
+          infoWindow: InfoWindow(
+            title: isMe ? 'You' : userName,
+            snippet: '${LocationService.formatSpeed((data['speedKmh'] as num?)?.toDouble() ?? 0)}',
+          ),
+        ));
+      }
+      setState(() => _teamMarkers = markers);
+    });
+  }
+
+  void _startPoiListener() {
+    if (_activeTeamId == null) return;
+    PoiService.getTeamPois(_activeTeamId!).listen((snapshot) {
+      if (!mounted) return;
+      final markers = <Marker>{};
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final lat = (data['lat'] as num?)?.toDouble() ?? 0;
+        final lng = (data['lng'] as num?)?.toDouble() ?? 0;
+        final title = data['title'] as String? ?? '';
+        final emoji = PoiService.categories[data['category'] ?? 'other'] ?? '📍';
+        markers.add(Marker(
+          markerId: MarkerId('poi_${doc.id}'),
+          position: LatLng(lat, lng),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          infoWindow: InfoWindow(title: '$emoji $title'),
+          onTap: () => _showPoiDetail(doc.id, data),
+        ));
+      }
+      setState(() => _poiMarkers = markers);
+    });
+  }
+
+  // ════════════════════════════════════
   // BUILD
   // ════════════════════════════════════
   @override
@@ -765,182 +904,30 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // ── MAP ──
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _myLocation ?? const LatLng(12.9716, 77.5946), // Default: Bangalore
-              initialZoom: 14,
-              onPositionChanged: (pos, hasGesture) {
-                if (hasGesture) setState(() => _followMe = false);
-              },
+          // ── GOOGLE MAP ──
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: _myLocation ?? const LatLng(12.9716, 77.5946),
+              zoom: 14,
             ),
-            children: [
-              // Map tiles (switchable)
-              TileLayer(
-                urlTemplate: _tileStyles[_tileStyleIndex]['url']!,
-                userAgentPackageName: 'com.travelbuddy.travel_buddy',
-                maxZoom: 19,
-              ),
-
-              // Team member markers (colored per member)
-              if (_activeTeamId != null)
-                StreamBuilder<QuerySnapshot>(
-                  stream: LocationService.getTeamLocations(_activeTeamId!),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const MarkerLayer(markers: []);
-                    final docs = snapshot.data!.docs;
-                    final markers = <Marker>[];
-                    for (int i = 0; i < docs.length; i++) {
-                      final doc = docs[i];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final lat = (data['lat'] as num?)?.toDouble() ?? 0;
-                      final lng = (data['lng'] as num?)?.toDouble() ?? 0;
-                      final speedKmh = (data['speedKmh'] as num?)?.toDouble() ?? 0;
-                      final userName = data['userName'] as String? ?? '?';
-                      final userPhoto = data['userPhoto'] as String? ?? '';
-                      final isMe = doc.id == currentUid;
-                      final color = _colorForMember(i);
-
-                      if (isMe && _followMe) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            _myLocation = LatLng(lat, lng);
-                            _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
-                          }
-                        });
-                      }
-
-                      markers.add(Marker(
-                        point: LatLng(lat, lng),
-                        width: 120, height: 70,
-                        child: _memberMarker(name: userName, photo: userPhoto, speed: speedKmh, isMe: isMe, color: color),
-                      ));
-                    }
-                    return MarkerLayer(markers: markers);
-                  },
-                ),
-
-              // My location accuracy circle
-              if (_activeTeamId == null && _myLocation != null && _accuracy > 0)
-                CircleLayer(
-                  circles: [
-                    CircleMarker(
-                      point: _myLocation!,
-                      radius: _accuracy,
-                      useRadiusInMeter: true,
-                      color: const Color(0xFF1A73E8).withOpacity(0.1),
-                      borderColor: const Color(0xFF1A73E8).withOpacity(0.3),
-                      borderStrokeWidth: 1.5,
-                    ),
-                  ],
-                ),
-
-              // My location marker (when not sharing with team)
-              if (_activeTeamId == null && _myLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _myLocation!,
-                      width: 24,
-                      height: 24,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A73E8),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF1A73E8).withOpacity(0.4),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-              // POI markers
-              if (_activeTeamId != null)
-                StreamBuilder<QuerySnapshot>(
-                  stream: PoiService.getTeamPois(_activeTeamId!),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const MarkerLayer(markers: []);
-                    final poiMarkers = snapshot.data!.docs.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final lat = (data['lat'] as num?)?.toDouble() ?? 0;
-                      final lng = (data['lng'] as num?)?.toDouble() ?? 0;
-                      final title = data['title'] as String? ?? '';
-                      final category = data['category'] as String? ?? 'other';
-                      final emoji = PoiService.categories[category] ?? '📍';
-                      return Marker(
-                        point: LatLng(lat, lng),
-                        width: 80,
-                        height: 48,
-                        child: GestureDetector(
-                          onLongPress: () => _showPoiDetail(doc.id, data),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF161B22).withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFFF6D00).withOpacity(0.4)),
-                                ),
-                                child: Text(emoji, style: const TextStyle(fontSize: 16)),
-                              ),
-                              Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList();
-                    return MarkerLayer(markers: poiMarkers);
-                  },
-                ),
-
-              // ── ROUTE POLYLINE ──
-              if (_routePolyline.isNotEmpty)
-                PolylineLayer(polylines: [
-                  Polyline(points: _routePolyline, strokeWidth: 4, color: const Color(0xFF1A73E8)),
-                ]),
-
-              // ── WAYPOINT MARKERS ──
-              if (_routeWaypoints.isNotEmpty)
-                MarkerLayer(markers: _routeWaypoints.asMap().entries.map((e) {
-                  final i = e.key; final w = e.value;
-                  final isStart = i == 0; final isEnd = i == _routeWaypoints.length - 1;
-                  final markerColor = isStart ? const Color(0xFF00BFA5) : isEnd ? Colors.redAccent : const Color(0xFFFF6D00);
-                  return Marker(point: LatLng(w['lat'], w['lng']), width: 90, height: 50,
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(
-                        color: markerColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                        child: Icon(isStart ? Icons.play_arrow : isEnd ? Icons.flag : Icons.circle, color: Colors.white, size: 14)),
-                      Text(w['name'] ?? '', style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis),
-                    ]));
-                }).toList()),
-
-              // ── NEARBY PLACES MARKERS ──
-              if (_nearbyPlaces.isNotEmpty)
-                MarkerLayer(markers: _nearbyPlaces.map((p) {
-                  return Marker(point: p.latLng, width: 80, height: 48,
-                    child: GestureDetector(
-                      onTap: () => _showNearbyDetail(p),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Container(padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(color: const Color(0xFF161B22).withOpacity(0.92),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white.withOpacity(0.15))),
-                          child: Text(p.emoji, style: const TextStyle(fontSize: 16))),
-                        Text(p.name, style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ])));
-                }).toList()),
-            ],
+            mapType: _mapTypes[_mapTypeIndex],
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            compassEnabled: false,
+            mapToolbarEnabled: false,
+            onMapCreated: (controller) {
+              _gMapController = controller;
+              if (_myLocation != null) {
+                controller.animateCamera(CameraUpdate.newLatLngZoom(_myLocation!, 15));
+              }
+            },
+            onCameraMoveStarted: () {
+              if (_followMe) setState(() => _followMe = false);
+            },
+            markers: _buildAllMarkers(),
+            polylines: _buildPolylines(),
+            circles: _buildCircles(),
           ),
 
           // ── TOP BAR ──
@@ -1025,7 +1012,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         _myLocation = LatLng(pos.latitude, pos.longitude);
                         _accuracy = pos.accuracy;
                       });
-                      _mapController.move(_myLocation!, 15);
+                      _gMapController?.animateCamera(
+                        CameraUpdate.newLatLngZoom(_myLocation!, 15),
+                      );
                     }
                   },
                 ),
@@ -1103,16 +1092,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     _mapButton(
                       icon: Icons.add_rounded,
                       onTap: () {
-                        final zoom = _mapController.camera.zoom + 1;
-                        _mapController.move(_mapController.camera.center, zoom);
+                        _gMapController?.animateCamera(CameraUpdate.zoomIn());
                       },
                     ),
                     const SizedBox(height: 8),
                     _mapButton(
                       icon: Icons.remove_rounded,
                       onTap: () {
-                        final zoom = _mapController.camera.zoom - 1;
-                        _mapController.move(_mapController.camera.center, zoom);
+                        _gMapController?.animateCamera(CameraUpdate.zoomOut());
                       },
                     ),
                     const SizedBox(height: 8),
