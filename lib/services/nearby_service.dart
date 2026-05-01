@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 class NearbyService {
   // Free Geoapify key (3000 requests/day, no billing needed)
   // Get yours at: https://myprojects.geoapify.com/register
-  static const String _geoapifyKey = ''; // Set your key here for better results
+  static const String _geoapifyKey = '65224d8c178e496bb922f133761718b7';
 
   // Category definitions with MULTIPLE OSM tags for broader results
   static const Map<String, Map<String, dynamic>> categories = {
