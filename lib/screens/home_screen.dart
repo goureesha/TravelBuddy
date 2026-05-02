@@ -486,6 +486,7 @@ class _WeatherCard extends StatefulWidget {
 class _WeatherCardState extends State<_WeatherCard> {
   WeatherData? _weather;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -494,12 +495,20 @@ class _WeatherCardState extends State<_WeatherCard> {
   }
 
   Future<void> _loadWeather() async {
-    final data = await WeatherService.getCurrentWeather();
-    if (mounted) {
-      setState(() {
-        _weather = data;
-        _loading = false;
-      });
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final data = await WeatherService.getCurrentWeather();
+      if (mounted) {
+        setState(() {
+          _weather = data;
+          _loading = false;
+          _error = data == null ? 'Enable location to see weather' : null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _loading = false; _error = 'Weather unavailable'; });
+      }
     }
   }
 
@@ -518,7 +527,32 @@ class _WeatherCardState extends State<_WeatherCard> {
       );
     }
 
-    if (_weather == null) return const SizedBox.shrink();
+    if (_weather == null) {
+      return GestureDetector(
+        onTap: _loadWeather,
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_off_rounded, color: Colors.white.withOpacity(0.3), size: 20),
+                const SizedBox(width: 8),
+                Text(_error ?? 'Tap to retry',
+                    style: GoogleFonts.inter(color: Colors.white.withOpacity(0.3), fontSize: 13)),
+                const SizedBox(width: 8),
+                Icon(Icons.refresh_rounded, color: Colors.white.withOpacity(0.2), size: 16),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     final w = _weather!;
     final bgColors = w.isDay
