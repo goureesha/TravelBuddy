@@ -12,6 +12,7 @@ import 'expense_screen.dart';
 import 'sos_screen.dart';
 import 'checklist_screen.dart';
 import '../widgets/notification_bell.dart';
+import '../services/weather_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -153,7 +154,10 @@ class _DashboardTab extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+            // Weather card
+            const _WeatherCard(),
+            const SizedBox(height: 24),
             // Quick actions
             Text(
               'Quick Actions',
@@ -448,6 +452,119 @@ class _LiveStats extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Weather card for dashboard
+class _WeatherCard extends StatefulWidget {
+  const _WeatherCard();
+
+  @override
+  State<_WeatherCard> createState() => _WeatherCardState();
+}
+
+class _WeatherCardState extends State<_WeatherCard> {
+  WeatherData? _weather;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeather();
+  }
+
+  Future<void> _loadWeather() async {
+    final data = await WeatherService.getCurrentWeather();
+    if (mounted) {
+      setState(() {
+        _weather = data;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+
+    if (_weather == null) return const SizedBox.shrink();
+
+    final w = _weather!;
+    final bgColors = w.isDay
+        ? [const Color(0xFF1A73E8), const Color(0xFF4FC3F7)]
+        : [const Color(0xFF1A237E), const Color(0xFF283593)];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: bgColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: bgColors[0].withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(w.icon, style: const TextStyle(fontSize: 36)),
+              const SizedBox(height: 4),
+              Text(
+                '${w.temperature.toStringAsFixed(0)}${String.fromCharCode(0x00B0)}',
+                style: GoogleFonts.inter(
+                  color: Colors.white, fontSize: 36,
+                  fontWeight: FontWeight.w900, height: 1,
+                ),
+              ),
+              Text(w.condition,
+                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+            ],
+          ),
+          const Spacer(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _weatherDetail(Icons.thermostat_rounded, 'Feels ${w.feelsLike.toStringAsFixed(0)}${String.fromCharCode(0x00B0)}'),
+              const SizedBox(height: 6),
+              _weatherDetail(Icons.water_drop_rounded, '${w.humidity}% humidity'),
+              const SizedBox(height: 6),
+              _weatherDetail(Icons.air_rounded, '${w.windSpeed.toStringAsFixed(0)} km/h wind'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weatherDetail(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white54, size: 14),
+        const SizedBox(width: 4),
+        Text(text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+      ],
     );
   }
 }
