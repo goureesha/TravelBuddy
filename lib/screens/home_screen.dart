@@ -13,6 +13,7 @@ import 'sos_screen.dart';
 import 'checklist_screen.dart';
 import '../widgets/notification_bell.dart';
 import '../services/weather_service.dart';
+import 'trip_log_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -200,6 +201,24 @@ class _DashboardTab extends StatelessWidget {
                   'Checklist',
                   const Color(0xFF26A69A),
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChecklistScreen())),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _quickAction(
+                  Icons.timeline_rounded,
+                  'Trip Log',
+                  const Color(0xFF7C4DFF),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripLogScreen())),
+                ),
+                const SizedBox(width: 12),
+                _quickAction(
+                  Icons.article_rounded,
+                  'Blog',
+                  const Color(0xFF00ACC1),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen())),
                 ),
               ],
             ),
