@@ -15,6 +15,7 @@ import '../services/poi_service.dart';
 import '../services/route_service.dart';
 import '../services/nearby_service.dart';
 import '../services/chat_service.dart';
+import '../services/eta_service.dart';
 import 'team_chat_screen.dart';
 
 class LiveMapScreen extends StatefulWidget {
@@ -245,6 +246,104 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     } else {
       LocationService.stopBroadcasting();
     }
+  }
+
+  // ════════════════════════════════════
+  // ETA SHARING
+  // ════════════════════════════════════
+  void _showShareEtaDialog() {
+    if (_activeTeamId == null) return;
+    final destCtrl = TextEditingController();
+    final minsCtrl = TextEditingController(text: '30');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2128),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A73E8).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.access_time_rounded, color: Color(0xFF1A73E8), size: 20),
+            ),
+            const SizedBox(width: 10),
+            Text('Share ETA', style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Tell your team when you\'ll arrive',
+                style: GoogleFonts.inter(color: Colors.white38, fontSize: 13)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: destCtrl,
+              style: GoogleFonts.inter(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Where are you going?',
+                labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+                prefixIcon: const Icon(Icons.place_rounded, color: Colors.white38, size: 20),
+                filled: true, fillColor: Colors.white.withOpacity(0.06),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: minsCtrl,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.inter(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Estimated minutes',
+                labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+                prefixIcon: const Icon(Icons.timer_rounded, color: Colors.white38, size: 20),
+                filled: true, fillColor: Colors.white.withOpacity(0.06),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A73E8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.send_rounded, color: Colors.white, size: 16),
+            label: Text('Share', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              final dest = destCtrl.text.trim();
+              final mins = int.tryParse(minsCtrl.text) ?? 30;
+              if (dest.isEmpty) return;
+              await EtaService.shareEta(
+                teamId: _activeTeamId!,
+                destinationName: dest,
+                destLat: _myLocation?.latitude ?? 0,
+                destLng: _myLocation?.longitude ?? 0,
+                estimatedMinutes: mins,
+              );
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('ETA shared: arriving at $dest in ~$mins min'),
+                    backgroundColor: const Color(0xFF1A73E8),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   // ════════════════════════════════════
@@ -1127,6 +1226,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   color: _showNearbyBar ? const Color(0xFFFF6D00) : Colors.white.withOpacity(0.54),
                   onTap: () => setState(() => _showNearbyBar = !_showNearbyBar),
                 ),
+                const SizedBox(width: 8),
+                // ETA share button
+                if (_activeTeamId != null)
+                  _mapButton(
+                    icon: Icons.access_time_rounded,
+                    color: Colors.white.withOpacity(0.54),
+                    onTap: _showShareEtaDialog,
+                  ),
                 const Spacer(),
                 // Zoom controls
                 Column(
