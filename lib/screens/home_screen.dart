@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'auth_screen.dart';
 import 'teams_screen.dart';
@@ -10,6 +11,7 @@ import 'blog_screen.dart';
 import 'expense_screen.dart';
 import 'sos_screen.dart';
 import 'checklist_screen.dart';
+import '../widgets/notification_bell.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -133,6 +135,9 @@ class _DashboardTab extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Notification bell
+                const NotificationBell(),
+                const SizedBox(width: 8),
                 // Profile icon
                 GestureDetector(
                   onTap: () => _showProfileSheet(context),
@@ -205,21 +210,7 @@ class _DashboardTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _statCard('0', 'Trips', Icons.route_rounded)),
-                const SizedBox(width: 12),
-                Expanded(child: _statCard('0 km', 'Distance', Icons.straighten_rounded)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _statCard('0', 'Teams', Icons.people_rounded)),
-                const SizedBox(width: 12),
-                Expanded(child: _statCard('₹0', 'Fuel Cost', Icons.local_gas_station_rounded)),
-              ],
-            ),
+            _LiveStats(),
           ],
         ),
         ),
@@ -347,3 +338,116 @@ class _DashboardTab extends StatelessWidget {
 // Map tab now uses LiveMapScreen from live_map_screen.dart
 
 // Teams tab now uses TeamsScreen from teams_screen.dart
+
+/// Real-time stats from Firestore
+class _LiveStats extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('teams')
+          .where('members', arrayContains: uid)
+          .snapshots(),
+      builder: (context, teamSnap) {
+        final teamCount = teamSnap.data?.docs.length ?? 0;
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('trips')
+              .where('userId', isEqualTo: uid)
+              .snapshots(),
+          builder: (context, tripSnap) {
+            final tripCount = tripSnap.data?.docs.length ?? 0;
+
+            // Calculate total distance from trips
+            double totalKm = 0;
+            for (final doc in tripSnap.data?.docs ?? []) {
+              final data = doc.data() as Map<String, dynamic>;
+              totalKm += (data['distanceKm'] as num?)?.toDouble() ?? 0;
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('fuel_logs')
+                  .where('userId', isEqualTo: uid)
+                  .snapshots(),
+              builder: (context, fuelSnap) {
+                double totalFuelCost = 0;
+                for (final doc in fuelSnap.data?.docs ?? []) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  totalFuelCost += (data['totalCost'] as num?)?.toDouble() ?? 0;
+                }
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _statCard('$tripCount', 'Trips', Icons.route_rounded)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _statCard(
+                          totalKm > 0 ? '${totalKm.toStringAsFixed(0)} km' : '0 km',
+                          'Distance', Icons.straighten_rounded,
+                        )),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _statCard('$teamCount', 'Teams', Icons.people_rounded)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _statCard(
+                          '₹${totalFuelCost.toStringAsFixed(0)}',
+                          'Fuel Cost', Icons.local_gas_station_rounded,
+                        )),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _statCard(String value, String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white.withOpacity(0.3), size: 20),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.4),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

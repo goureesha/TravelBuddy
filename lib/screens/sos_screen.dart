@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
+import '../widgets/notification_bell.dart';
 
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
@@ -100,6 +101,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
       backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         title: Text('Emergency SOS', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        actions: const [NotificationBell(), SizedBox(width: 8)],
       ),
       body: Center(
         child: Column(

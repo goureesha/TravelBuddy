@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/expense_service.dart';
 import '../services/team_service.dart';
+import '../widgets/notification_bell.dart';
 
 class ExpenseScreen extends StatefulWidget {
   const ExpenseScreen({super.key});
@@ -153,6 +154,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       appBar: AppBar(
         title: Text('Expenses', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
+          const NotificationBell(),
+          const SizedBox(width: 4),
           TextButton.icon(
             onPressed: _pickMode,
             icon: Icon(

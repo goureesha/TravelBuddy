@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/team_service.dart';
+import '../widgets/notification_bell.dart';
 
 class ChecklistScreen extends StatefulWidget {
   const ChecklistScreen({super.key});
@@ -119,6 +120,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       appBar: AppBar(
         title: Text('Checklist', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
+          const NotificationBell(),
+          const SizedBox(width: 4),
           TextButton.icon(
             onPressed: _pickMode,
             icon: Icon(

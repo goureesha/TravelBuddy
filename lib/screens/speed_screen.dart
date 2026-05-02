@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/location_service.dart';
+import '../widgets/notification_bell.dart';
 
 class SpeedScreen extends StatefulWidget {
   const SpeedScreen({super.key});
@@ -84,6 +85,7 @@ class _SpeedScreenState extends State<SpeedScreen> with SingleTickerProviderStat
       backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         title: Text('Speedometer', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        actions: const [NotificationBell(), SizedBox(width: 8)],
       ),
       body: Center(
         child: Column(

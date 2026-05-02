@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/blog_service.dart';
 import '../services/team_service.dart';
+import '../widgets/notification_bell.dart';
 
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
@@ -239,6 +240,8 @@ class _BlogScreenState extends State<BlogScreen> {
       appBar: AppBar(
         title: Text('Travel Blog', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
+          const NotificationBell(),
+          const SizedBox(width: 4),
           TextButton.icon(
             onPressed: _pickMode,
             icon: Icon(
