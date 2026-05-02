@@ -37,6 +37,7 @@ dependencies:
   intl: any
   google_fonts: any
   http: any
+  url_launcher: any
 
 dev_dependencies:
   flutter_test:

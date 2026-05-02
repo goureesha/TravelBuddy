@@ -14,6 +14,7 @@ import 'checklist_screen.dart';
 import '../widgets/notification_bell.dart';
 import '../services/weather_service.dart';
 import 'trip_log_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -139,6 +140,10 @@ class _DashboardTab extends StatelessWidget {
                 ),
                 // Notification bell
                 const NotificationBell(),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, size: 22),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
                 const SizedBox(width: 8),
                 // Profile icon
                 GestureDetector(
