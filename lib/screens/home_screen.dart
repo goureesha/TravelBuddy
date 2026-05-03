@@ -18,6 +18,7 @@ import 'settings_screen.dart';
 import 'packing_list_screen.dart';
 import 'trip_planner_screen.dart';
 import 'trip_cost_screen.dart';
+import 'document_wallet_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -170,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.luggage_rounded, 'Packing Lists', const Color(0xFFFF7043), () => const PackingListScreen()),
             _drawerItem(Icons.map_rounded, 'Trip Planner', const Color(0xFF1A73E8), () => const TripPlannerScreen()),
             _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
+            _drawerItem(Icons.folder_rounded, 'Documents', const Color(0xFF8D6E63), () => const DocumentWalletScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
