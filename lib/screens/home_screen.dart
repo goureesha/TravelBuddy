@@ -33,6 +33,7 @@ import 'budget_planner_screen.dart';
 import 'emergency_info_screen.dart';
 import 'mileage_calculator_screen.dart';
 import 'trip_stats_screen.dart';
+import 'toll_calculator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -200,6 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.emergency_rounded, 'Emergency', const Color(0xFFE53935), () => const EmergencyInfoScreen()),
             _drawerItem(Icons.speed_rounded, 'Mileage', const Color(0xFF43A047), () => const MileageCalculatorScreen()),
             _drawerItem(Icons.leaderboard_rounded, 'Trip Stats', const Color(0xFF7C4DFF), () => const TripStatsScreen()),
+            _drawerItem(Icons.toll_rounded, 'Tolls', const Color(0xFFFF6D00), () => const TollCalculatorScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
