@@ -30,6 +30,7 @@ import 'travel_journal_screen.dart';
 import 'currency_converter_screen.dart';
 import 'travel_alerts_screen.dart';
 import 'budget_planner_screen.dart';
+import 'emergency_info_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -194,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.currency_exchange_rounded, 'Currency', const Color(0xFF1A73E8), () => const CurrencyConverterScreen()),
             _drawerItem(Icons.notification_important_rounded, 'Alerts', const Color(0xFFE53935), () => const TravelAlertsScreen()),
             _drawerItem(Icons.account_balance_wallet_rounded, 'Budget', const Color(0xFF00897B), () => const BudgetPlannerScreen()),
+            _drawerItem(Icons.emergency_rounded, 'Emergency', const Color(0xFFE53935), () => const EmergencyInfoScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
