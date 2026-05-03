@@ -276,6 +276,9 @@ class _DashboardTab extends StatelessWidget {
             const SizedBox(height: 20),
             // Weather card
             const _WeatherCard(),
+            const SizedBox(height: 16),
+            // Trip countdown
+            _TripCountdown(),
             const SizedBox(height: 24),
             // Recent Activity
             Text(
@@ -427,6 +430,121 @@ class _DashboardTab extends StatelessWidget {
 // Map tab now uses LiveMapScreen from live_map_screen.dart
 
 // Teams tab now uses TeamsScreen from teams_screen.dart
+
+/// Trip countdown widget — shows days until next trip
+class _TripCountdown extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('planned_trips')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        DateTime? nextTripDate;
+        String? nextTripName;
+
+        for (final doc in snapshot.data!.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final dateStr = data['startDate'] as String?;
+          if (dateStr == null) continue;
+
+          // Try parsing common date formats
+          DateTime? tripDate;
+          try {
+            // Try yyyy-MM-dd
+            tripDate = DateTime.tryParse(dateStr);
+            if (tripDate == null) {
+              // Try dd/MM/yyyy
+              final parts = dateStr.split('/');
+              if (parts.length == 3) {
+                tripDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+              }
+            }
+          } catch (_) {}
+
+          if (tripDate != null && tripDate.isAfter(now)) {
+            if (nextTripDate == null || tripDate.isBefore(nextTripDate)) {
+              nextTripDate = tripDate;
+              nextTripName = data['name'] as String? ?? 'Trip';
+            }
+          }
+        }
+
+        if (nextTripDate == null) return const SizedBox.shrink();
+
+        final daysLeft = nextTripDate.difference(now).inDays;
+        final hoursLeft = nextTripDate.difference(now).inHours % 24;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: daysLeft <= 3
+                  ? [const Color(0xFFFF6D00), const Color(0xFFFF9100)]
+                  : [const Color(0xFF7C4DFF), const Color(0xFFB388FF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: (daysLeft <= 3 ? const Color(0xFFFF6D00) : const Color(0xFF7C4DFF)).withOpacity(0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52, height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('$daysLeft', style: GoogleFonts.inter(
+                        color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
+                    Text('days', style: GoogleFonts.inter(color: Colors.white70, fontSize: 10)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(nextTripName!, style: GoogleFonts.inter(
+                        color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text(
+                      daysLeft == 0
+                          ? 'Today! ${hoursLeft}h left'
+                          : daysLeft == 1
+                              ? 'Tomorrow!'
+                              : '$daysLeft days to go',
+                      style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.flight_takeoff_rounded, color: Colors.white38, size: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 /// Recent activity feed from multiple Firestore collections
 class _RecentActivity extends StatelessWidget {
