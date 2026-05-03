@@ -36,6 +36,7 @@ import 'trip_stats_screen.dart';
 import 'toll_calculator_screen.dart';
 import 'weather_screen.dart';
 import 'fuel_price_screen.dart';
+import 'trip_templates_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -206,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.toll_rounded, 'Tolls', const Color(0xFFFF6D00), () => const TollCalculatorScreen()),
             _drawerItem(Icons.cloud_rounded, 'Weather', const Color(0xFF29B6F6), () => const WeatherScreen()),
             _drawerItem(Icons.local_gas_station_rounded, 'Fuel Prices', const Color(0xFF43A047), () => const FuelPriceScreen()),
+            _drawerItem(Icons.travel_explore_rounded, 'Templates', const Color(0xFF5C6BC0), () => const TripTemplatesScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
