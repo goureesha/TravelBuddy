@@ -21,6 +21,7 @@ import 'trip_cost_screen.dart';
 import 'document_wallet_screen.dart';
 import 'group_expense_screen.dart';
 import 'route_optimizer_screen.dart';
+import 'trip_sharing_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -176,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.folder_rounded, 'Documents', const Color(0xFF8D6E63), () => const DocumentWalletScreen()),
             _drawerItem(Icons.group_work_rounded, 'Split Costs', const Color(0xFF5C6BC0), () => const GroupExpenseScreen()),
             _drawerItem(Icons.alt_route_rounded, 'Route Plan', const Color(0xFF66BB6A), () => const RouteOptimizerScreen()),
+            _drawerItem(Icons.share_rounded, 'Share Trips', const Color(0xFFFFB74D), () => const TripSharingScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
