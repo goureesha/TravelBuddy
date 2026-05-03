@@ -226,7 +226,7 @@ class _TripCostScreenState extends State<TripCostScreen> {
                                         Text(category, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
                                         if (note.isNotEmpty)
                                           Text(note, style: GoogleFonts.inter(color: Colors.white30, fontSize: 11)),
-                                        Text(timeStr, style: GoogleFonts.inter(color: Colors.white20, fontSize: 10)),
+                                        Text(timeStr, style: GoogleFonts.inter(color: Colors.white24, fontSize: 10)),
                                       ],
                                     ),
                                   ),
