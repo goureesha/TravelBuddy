@@ -16,6 +16,7 @@ import '../services/weather_service.dart';
 import 'trip_log_screen.dart';
 import 'settings_screen.dart';
 import 'packing_list_screen.dart';
+import 'trip_planner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -238,7 +239,12 @@ class _DashboardTab extends StatelessWidget {
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackingListScreen())),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: SizedBox()),
+                _quickAction(
+                  Icons.map_rounded,
+                  'Planner',
+                  const Color(0xFF1A73E8),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen())),
+                ),
               ],
             ),
             const SizedBox(height: 28),
