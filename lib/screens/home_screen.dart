@@ -15,6 +15,7 @@ import '../widgets/notification_bell.dart';
 import '../services/weather_service.dart';
 import 'trip_log_screen.dart';
 import 'settings_screen.dart';
+import 'packing_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -225,6 +226,19 @@ class _DashboardTab extends StatelessWidget {
                   const Color(0xFF00ACC1),
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen())),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _quickAction(
+                  Icons.luggage_rounded,
+                  'Packing',
+                  const Color(0xFFFF7043),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackingListScreen())),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: SizedBox()),
               ],
             ),
             const SizedBox(height: 28),
