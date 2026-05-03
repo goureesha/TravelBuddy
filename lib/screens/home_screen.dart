@@ -270,7 +270,19 @@ class _DashboardTab extends StatelessWidget {
             const SizedBox(height: 20),
             // Weather card
             const _WeatherCard(),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
+            // Recent Activity
+            Text(
+              'Recent Activity',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _RecentActivity(),
+            const SizedBox(height: 24),
             // Stats cards
             Text(
               'Your Stats',
@@ -409,6 +421,167 @@ class _DashboardTab extends StatelessWidget {
 // Map tab now uses LiveMapScreen from live_map_screen.dart
 
 // Teams tab now uses TeamsScreen from teams_screen.dart
+
+/// Recent activity feed from multiple Firestore collections
+class _RecentActivity extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('trip_costs')
+          .orderBy('createdAt', descending: true).limit(5)
+          .snapshots(),
+      builder: (context, costSnap) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users').doc(uid).collection('checkpoints')
+              .orderBy('timestamp', descending: true).limit(5)
+              .snapshots(),
+          builder: (context, logSnap) {
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('fuel_logs')
+                  .where('userId', isEqualTo: uid)
+                  .orderBy('timestamp', descending: true).limit(3)
+                  .snapshots(),
+              builder: (context, fuelSnap) {
+                final List<_ActivityItem> items = [];
+
+                // Cost entries
+                for (final doc in costSnap.data?.docs ?? []) {
+                  final d = doc.data() as Map<String, dynamic>;
+                  final ts = d['createdAt'] as Timestamp?;
+                  if (ts != null) {
+                    items.add(_ActivityItem(
+                      icon: Icons.receipt_long_rounded,
+                      color: const Color(0xFFEC407A),
+                      title: '${d['category'] ?? 'Expense'} — ₹${(d['amount'] as num?)?.toStringAsFixed(0) ?? '0'}',
+                      subtitle: d['note'] as String? ?? '',
+                      time: ts.toDate(),
+                    ));
+                  }
+                }
+
+                // Trip log checkpoints
+                for (final doc in logSnap.data?.docs ?? []) {
+                  final d = doc.data() as Map<String, dynamic>;
+                  final ts = d['timestamp'] as Timestamp?;
+                  if (ts != null) {
+                    items.add(_ActivityItem(
+                      icon: Icons.location_on_rounded,
+                      color: const Color(0xFF7C4DFF),
+                      title: d['label'] as String? ?? 'Checkpoint',
+                      subtitle: '',
+                      time: ts.toDate(),
+                    ));
+                  }
+                }
+
+                // Fuel logs
+                for (final doc in fuelSnap.data?.docs ?? []) {
+                  final d = doc.data() as Map<String, dynamic>;
+                  final ts = d['timestamp'] as Timestamp?;
+                  if (ts != null) {
+                    items.add(_ActivityItem(
+                      icon: Icons.local_gas_station_rounded,
+                      color: const Color(0xFFFF6D00),
+                      title: 'Fuel — ₹${(d['totalCost'] as num?)?.toStringAsFixed(0) ?? '0'}',
+                      subtitle: '${(d['liters'] as num?)?.toStringAsFixed(1) ?? '0'} L',
+                      time: ts.toDate(),
+                    ));
+                  }
+                }
+
+                items.sort((a, b) => b.time.compareTo(a.time));
+                final display = items.take(5).toList();
+
+                if (display.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.03),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: Center(
+                      child: Text('No recent activity yet',
+                          style: GoogleFonts.inter(color: Colors.white24, fontSize: 13)),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: display.map((item) {
+                    final ago = _timeAgo(item.time);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                color: item.color.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(item.icon, color: item.color, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item.title, style: GoogleFonts.inter(
+                                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  if (item.subtitle.isNotEmpty)
+                                    Text(item.subtitle, style: GoogleFonts.inter(
+                                        color: Colors.white30, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                            Text(ago, style: GoogleFonts.inter(color: Colors.white24, fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${(diff.inDays / 7).floor()}w';
+  }
+}
+
+class _ActivityItem {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final DateTime time;
+  _ActivityItem({required this.icon, required this.color, required this.title, required this.subtitle, required this.time});
+}
 
 /// Real-time stats from Firestore
 class _LiveStats extends StatelessWidget {
