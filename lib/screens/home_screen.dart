@@ -17,6 +17,7 @@ import 'trip_log_screen.dart';
 import 'settings_screen.dart';
 import 'packing_list_screen.dart';
 import 'trip_planner_screen.dart';
+import 'trip_cost_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -245,6 +246,19 @@ class _DashboardTab extends StatelessWidget {
                   const Color(0xFF1A73E8),
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen())),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _quickAction(
+                  Icons.receipt_long_rounded,
+                  'Costs',
+                  const Color(0xFFEC407A),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripCostScreen())),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: SizedBox()),
               ],
             ),
             const SizedBox(height: 28),
