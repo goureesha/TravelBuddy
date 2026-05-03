@@ -24,6 +24,7 @@ import 'route_optimizer_screen.dart';
 import 'trip_sharing_screen.dart';
 import 'expense_analytics_screen.dart';
 import 'travel_badges_screen.dart';
+import 'smart_packing_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -182,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.share_rounded, 'Share Trips', const Color(0xFFFFB74D), () => const TripSharingScreen()),
             _drawerItem(Icons.bar_chart_rounded, 'Analytics', const Color(0xFF29B6F6), () => const ExpenseAnalyticsScreen()),
             _drawerItem(Icons.emoji_events_rounded, 'Badges', const Color(0xFFFF6D00), () => const TravelBadgesScreen()),
+            _drawerItem(Icons.luggage_rounded, 'Smart Pack', const Color(0xFF26A69A), () => const SmartPackingScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
