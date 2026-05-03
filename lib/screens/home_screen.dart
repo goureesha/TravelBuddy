@@ -38,6 +38,8 @@ import 'weather_screen.dart';
 import 'fuel_price_screen.dart';
 import 'trip_templates_screen.dart';
 import 'maintenance_screen.dart';
+import 'community_feed_screen.dart';
+import 'trip_compare_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -210,6 +212,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.local_gas_station_rounded, 'Fuel Prices', const Color(0xFF43A047), () => const FuelPriceScreen()),
             _drawerItem(Icons.travel_explore_rounded, 'Templates', const Color(0xFF5C6BC0), () => const TripTemplatesScreen()),
             _drawerItem(Icons.build_circle_rounded, 'Maintenance', const Color(0xFFFF6D00), () => const MaintenanceScreen()),
+            _drawerItem(Icons.groups_rounded, 'Community', const Color(0xFF7C4DFF), () => const CommunityFeedScreen()),
+            _drawerItem(Icons.compare_arrows_rounded, 'Compare', const Color(0xFF00ACC1), () => const TripCompareScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
