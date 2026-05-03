@@ -608,7 +608,7 @@ class _WeatherCardState extends State<_WeatherCard> {
         ? [const Color(0xFF1A73E8), const Color(0xFF4FC3F7)]
         : [const Color(0xFF1A237E), const Color(0xFF283593)];
 
-    const deg = String.fromCharCode(0x00B0);
+    final deg = String.fromCharCode(0x00B0);
     final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return Container(
