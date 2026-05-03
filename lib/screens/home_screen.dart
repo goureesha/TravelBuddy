@@ -28,6 +28,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final _pages = const [
     _DashboardTab(),
@@ -42,7 +43,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      body: _pages[_currentIndex],
+      key: _scaffoldKey,
+      drawer: _buildDrawer(context, user),
+      body: Stack(
+        children: [
+          _pages[_currentIndex],
+          // Hamburger menu button - top left
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 12,
+            child: GestureDetector(
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161B22).withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: const Icon(Icons.menu_rounded, color: Colors.white70, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF161B22),
@@ -87,6 +111,93 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildDrawer(BuildContext context, User? user) {
+    return Drawer(
+      backgroundColor: const Color(0xFF161B22),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+                    backgroundColor: const Color(0xFF1A73E8),
+                    child: user?.photoURL == null
+                        ? Text(user?.displayName?.isNotEmpty == true ? user!.displayName![0] : '?',
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user?.displayName ?? 'Traveler',
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                        Text(user?.email ?? '',
+                            style: GoogleFonts.inter(color: Colors.white38, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: Colors.white.withOpacity(0.06), height: 1),
+            const SizedBox(height: 8),
+            // Quick Actions
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Quick Actions',
+                    style: GoogleFonts.inter(color: Colors.white30, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
+              ),
+            ),
+            _drawerItem(Icons.speed_rounded, 'Speedometer', const Color(0xFF00BFA5), () => const SpeedScreen()),
+            _drawerItem(Icons.account_balance_wallet_rounded, 'Expenses', const Color(0xFFFF6D00), () => const ExpenseScreen()),
+            _drawerItem(Icons.sos_rounded, 'SOS Alert', const Color(0xFFE53935), () => const SosScreen()),
+            _drawerItem(Icons.checklist_rounded, 'Checklist', const Color(0xFF26A69A), () => const ChecklistScreen()),
+            _drawerItem(Icons.timeline_rounded, 'Trip Log', const Color(0xFF7C4DFF), () => const TripLogScreen()),
+            _drawerItem(Icons.luggage_rounded, 'Packing Lists', const Color(0xFFFF7043), () => const PackingListScreen()),
+            _drawerItem(Icons.map_rounded, 'Trip Planner', const Color(0xFF1A73E8), () => const TripPlannerScreen()),
+            _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
+            const Spacer(),
+            Divider(color: Colors.white.withOpacity(0.06), height: 1),
+            _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerItem(IconData icon, String label, Color color, Widget Function() screenBuilder) {
+    return ListTile(
+      dense: true,
+      leading: Container(
+        width: 34, height: 34,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 18),
+      ),
+      title: Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
+      onTap: () {
+        Navigator.pop(context); // close drawer
+        Navigator.push(context, MaterialPageRoute(builder: (_) => screenBuilder()));
+      },
+    );
+  }
 }
 
 
@@ -107,18 +218,10 @@ class _DashboardTab extends StatelessWidget {
           child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with padding for menu button
+            const SizedBox(height: 44),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: user?.photoURL != null
-                      ? NetworkImage(user!.photoURL!)
-                      : null,
-                  child: user?.photoURL == null
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,14 +244,8 @@ class _DashboardTab extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Notification bell
                 const NotificationBell(),
-          IconButton(
-            icon: const Icon(Icons.settings_rounded, size: 22),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
                 const SizedBox(width: 8),
-                // Profile icon
                 GestureDetector(
                   onTap: () => _showProfileSheet(context),
                   child: Container(
@@ -158,7 +255,12 @@ class _DashboardTab extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.white.withOpacity(0.12)),
                     ),
-                    child: Icon(Icons.person_rounded, color: Colors.white.withOpacity(0.7), size: 22),
+                    child: user?.photoURL != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(user!.photoURL!, fit: BoxFit.cover),
+                          )
+                        : Icon(Icons.person_rounded, color: Colors.white.withOpacity(0.7), size: 22),
                   ),
                 ),
               ],
@@ -166,101 +268,6 @@ class _DashboardTab extends StatelessWidget {
             const SizedBox(height: 20),
             // Weather card
             const _WeatherCard(),
-            const SizedBox(height: 24),
-            // Quick actions
-            Text(
-              'Quick Actions',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withOpacity(0.7),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
-                  Icons.speed_rounded,
-                  'Speed',
-                  const Color(0xFF00BFA5),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeedScreen())),
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.account_balance_wallet_rounded,
-                  'Expenses',
-                  const Color(0xFFFF6D00),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpenseScreen())),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
-                  Icons.sos_rounded,
-                  'SOS',
-                  const Color(0xFFE53935),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SosScreen())),
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.checklist_rounded,
-                  'Checklist',
-                  const Color(0xFF26A69A),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChecklistScreen())),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
-                  Icons.timeline_rounded,
-                  'Trip Log',
-                  const Color(0xFF7C4DFF),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripLogScreen())),
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.article_rounded,
-                  'Blog',
-                  const Color(0xFF00ACC1),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen())),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
-                  Icons.luggage_rounded,
-                  'Packing',
-                  const Color(0xFFFF7043),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackingListScreen())),
-                ),
-                const SizedBox(width: 12),
-                _quickAction(
-                  Icons.map_rounded,
-                  'Planner',
-                  const Color(0xFF1A73E8),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen())),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
-                  Icons.receipt_long_rounded,
-                  'Costs',
-                  const Color(0xFFEC407A),
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripCostScreen())),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: SizedBox()),
-              ],
-            ),
             const SizedBox(height: 28),
             // Stats cards
             Text(
