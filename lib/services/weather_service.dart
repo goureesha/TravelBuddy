@@ -27,6 +27,25 @@ class WeatherData {
   });
 }
 
+/// Daily forecast model
+class ForecastDay {
+  final DateTime date;
+  final double tempMax;
+  final double tempMin;
+  final int weatherCode;
+  final String condition;
+  final String icon;
+
+  ForecastDay({
+    required this.date,
+    required this.tempMax,
+    required this.tempMin,
+    required this.weatherCode,
+    required this.condition,
+    required this.icon,
+  });
+}
+
 /// Uses Open-Meteo API — free, no API key needed
 class WeatherService {
   static WeatherData? _cached;
@@ -56,6 +75,8 @@ class WeatherService {
         '&longitude=${position.longitude}'
         '&current=temperature_2m,relative_humidity_2m,apparent_temperature,'
         'weather_code,wind_speed_10m,is_day'
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min'
+        '&forecast_days=3'
         '&timezone=auto',
       );
 
@@ -79,6 +100,9 @@ class WeatherService {
         icon: _getIcon(code, isDay),
       );
       _lastFetch = DateTime.now();
+
+      // Also parse forecast
+      _cachedForecast = _parseForecast(json);
 
       return _cached;
     } catch (e) {
@@ -130,5 +154,44 @@ class WeatherService {
       case 96: case 99: return '⛈️';
       default: return '🌡️';
     }
+  }
+
+  /// Parse 3-day forecast from the same API response
+  static List<ForecastDay> _parseForecast(Map<String, dynamic> json) {
+    final daily = json['daily'];
+    if (daily == null) return [];
+    final dates = (daily['time'] as List?) ?? [];
+    final maxTemps = (daily['temperature_2m_max'] as List?) ?? [];
+    final minTemps = (daily['temperature_2m_min'] as List?) ?? [];
+    final codes = (daily['weather_code'] as List?) ?? [];
+
+    final List<ForecastDay> forecast = [];
+    for (int i = 0; i < dates.length && i < 3; i++) {
+      final code = (codes[i] as num).toInt();
+      forecast.add(ForecastDay(
+        date: DateTime.parse(dates[i]),
+        tempMax: (maxTemps[i] as num).toDouble(),
+        tempMin: (minTemps[i] as num).toDouble(),
+        weatherCode: code,
+        condition: _getCondition(code),
+        icon: _getIcon(code, true),
+      ));
+    }
+    return forecast;
+  }
+
+  /// Cached forecast
+  static List<ForecastDay>? _cachedForecast;
+
+  /// Get 3-day forecast
+  static Future<List<ForecastDay>> getForecast() async {
+    if (_cachedForecast != null && _lastFetch != null) {
+      if (DateTime.now().difference(_lastFetch!).inMinutes < 15) {
+        return _cachedForecast!;
+      }
+    }
+    // Trigger getCurrentWeather to refresh the cache
+    await getCurrentWeather();
+    return _cachedForecast ?? [];
   }
 }

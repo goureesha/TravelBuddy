@@ -531,6 +531,7 @@ class _WeatherCard extends StatefulWidget {
 
 class _WeatherCardState extends State<_WeatherCard> {
   WeatherData? _weather;
+  List<ForecastDay> _forecast = [];
   bool _loading = true;
   String? _error;
 
@@ -544,9 +545,11 @@ class _WeatherCardState extends State<_WeatherCard> {
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
       final data = await WeatherService.getCurrentWeather();
+      final forecast = await WeatherService.getForecast();
       if (mounted) {
         setState(() {
           _weather = data;
+          _forecast = forecast;
           _loading = false;
           _error = data == null ? 'Enable location to see weather' : null;
         });
@@ -605,6 +608,9 @@ class _WeatherCardState extends State<_WeatherCard> {
         ? [const Color(0xFF1A73E8), const Color(0xFF4FC3F7)]
         : [const Color(0xFF1A237E), const Color(0xFF283593)];
 
+    const deg = String.fromCharCode(0x00B0);
+    final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -622,35 +628,68 @@ class _WeatherCardState extends State<_WeatherCard> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Current weather
+          Row(
             children: [
-              Text(w.icon, style: const TextStyle(fontSize: 36)),
-              const SizedBox(height: 4),
-              Text(
-                '${w.temperature.toStringAsFixed(0)}${String.fromCharCode(0x00B0)}',
-                style: GoogleFonts.inter(
-                  color: Colors.white, fontSize: 36,
-                  fontWeight: FontWeight.w900, height: 1,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(w.icon, style: const TextStyle(fontSize: 36)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${w.temperature.toStringAsFixed(0)}$deg',
+                    style: GoogleFonts.inter(
+                      color: Colors.white, fontSize: 36,
+                      fontWeight: FontWeight.w900, height: 1,
+                    ),
+                  ),
+                  Text(w.condition,
+                      style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                ],
               ),
-              Text(w.condition,
-                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _weatherDetail(Icons.thermostat_rounded, 'Feels ${w.feelsLike.toStringAsFixed(0)}$deg'),
+                  const SizedBox(height: 6),
+                  _weatherDetail(Icons.water_drop_rounded, '${w.humidity}% humidity'),
+                  const SizedBox(height: 6),
+                  _weatherDetail(Icons.air_rounded, '${w.windSpeed.toStringAsFixed(0)} km/h wind'),
+                ],
+              ),
             ],
           ),
-          const Spacer(),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _weatherDetail(Icons.thermostat_rounded, 'Feels ${w.feelsLike.toStringAsFixed(0)}${String.fromCharCode(0x00B0)}'),
-              const SizedBox(height: 6),
-              _weatherDetail(Icons.water_drop_rounded, '${w.humidity}% humidity'),
-              const SizedBox(height: 6),
-              _weatherDetail(Icons.air_rounded, '${w.windSpeed.toStringAsFixed(0)} km/h wind'),
-            ],
-          ),
+          // 3-day forecast
+          if (_forecast.length > 1) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Divider(color: Colors.white.withOpacity(0.15), height: 1),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: _forecast.map((day) {
+                final isToday = day.date.day == DateTime.now().day;
+                final label = isToday ? 'Today' : dayNames[day.date.weekday - 1];
+                return Column(
+                  children: [
+                    Text(label, style: GoogleFonts.inter(
+                      color: isToday ? Colors.white : Colors.white54,
+                      fontSize: 11, fontWeight: isToday ? FontWeight.w600 : FontWeight.w400)),
+                    const SizedBox(height: 4),
+                    Text(day.icon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(height: 4),
+                    Text('${day.tempMax.toStringAsFixed(0)}$deg',
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text('${day.tempMin.toStringAsFixed(0)}$deg',
+                        style: GoogleFonts.inter(color: Colors.white38, fontSize: 11)),
+                  ],
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
