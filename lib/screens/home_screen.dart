@@ -28,6 +28,7 @@ import 'smart_packing_screen.dart';
 import 'discover_places_screen.dart';
 import 'travel_journal_screen.dart';
 import 'currency_converter_screen.dart';
+import 'travel_alerts_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -190,6 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _drawerItem(Icons.explore_rounded, 'Discover', const Color(0xFFFFB300), () => const DiscoverPlacesScreen()),
             _drawerItem(Icons.auto_stories_rounded, 'Journal', const Color(0xFF7E57C2), () => const TravelJournalScreen()),
             _drawerItem(Icons.currency_exchange_rounded, 'Currency', const Color(0xFF1A73E8), () => const CurrencyConverterScreen()),
+            _drawerItem(Icons.notification_important_rounded, 'Alerts', const Color(0xFFE53935), () => const TravelAlertsScreen()),
             const Spacer(),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             _drawerItem(Icons.settings_rounded, 'Settings', Colors.white38, () => const SettingsScreen()),
