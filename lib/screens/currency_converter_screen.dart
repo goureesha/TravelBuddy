@@ -93,7 +93,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                     style: GoogleFonts.inter(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
                 if (_rates[_to] != null)
                   Text('1 $_from = ${_rates[_to]!.toStringAsFixed(4)} $_to',
-                      style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
+                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
               ] else
                 Text('Enter amount to convert', style: GoogleFonts.inter(color: Colors.white54, fontSize: 14)),
             ]),

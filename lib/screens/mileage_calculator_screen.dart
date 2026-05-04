@@ -99,7 +99,7 @@ class _MileageCalculatorScreenState extends State<MileageCalculatorScreen> {
                 Text(_rating(_mileage!), style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
                 if (_costPerKm != null) ...[
                   const SizedBox(height: 8),
-                  Text('₹${_costPerKm!.toStringAsFixed(1)} per km', style: GoogleFonts.inter(color: Colors.white60, fontSize: 13)),
+                  Text('₹${_costPerKm!.toStringAsFixed(1)} per km', style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
                 ],
               ]),
             ),

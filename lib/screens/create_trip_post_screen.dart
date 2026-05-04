@@ -375,11 +375,11 @@ class _CreateTripPostScreenState extends State<CreateTripPostScreen> {
         Text(_destCtrl.text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
         const SizedBox(height: 8),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('$_duration days', style: GoogleFonts.inter(color: Colors.white60, fontSize: 13)),
+          Text('$_duration days', style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
           Text(' • ', style: GoogleFonts.inter(color: Colors.white38)),
           Text('₹${_totalCost.toStringAsFixed(0)}', style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
           Text(' • ', style: GoogleFonts.inter(color: Colors.white38)),
-          Text(_tripType, style: GoogleFonts.inter(color: Colors.white60, fontSize: 13)),
+          Text(_tripType, style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
         ]),
       ]),
     ),
@@ -406,7 +406,7 @@ class _CreateTripPostScreenState extends State<CreateTripPostScreen> {
   Widget _field(TextEditingController ctrl, String label, String hint) => TextField(
     controller: ctrl, style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
     decoration: InputDecoration(labelText: label, labelStyle: GoogleFonts.inter(color: Colors.white38),
-        hintText: hint, hintStyle: GoogleFonts.inter(color: Colors.white16),
+        hintText: hint, hintStyle: GoogleFonts.inter(color: Colors.white24),
         filled: true, fillColor: const Color(0xFF161B22),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
   );
@@ -415,14 +415,14 @@ class _CreateTripPostScreenState extends State<CreateTripPostScreen> {
     padding: const EdgeInsets.only(bottom: 6),
     child: TextField(controller: ctrl, style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
         keyboardType: isNumber ? TextInputType.number : null,
-        decoration: InputDecoration(hintText: hint, hintStyle: GoogleFonts.inter(color: Colors.white16, fontSize: 12),
+        decoration: InputDecoration(hintText: hint, hintStyle: GoogleFonts.inter(color: Colors.white24, fontSize: 12),
             filled: true, fillColor: Colors.white.withOpacity(0.04), isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none))),
   );
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
-    hintText: hint, hintStyle: GoogleFonts.inter(color: Colors.white16, fontSize: 12),
+    hintText: hint, hintStyle: GoogleFonts.inter(color: Colors.white24, fontSize: 12),
     filled: true, fillColor: const Color(0xFF161B22),
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
   );

@@ -291,7 +291,7 @@ class _TripPostDetailScreenState extends State<TripPostDetailScreen> {
     padding: const EdgeInsets.only(top: 4),
     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('$emoji ', style: const TextStyle(fontSize: 13)),
-      Expanded(child: Text(text ?? '', style: GoogleFonts.inter(color: Colors.white60, fontSize: 12))),
+      Expanded(child: Text(text ?? '', style: GoogleFonts.inter(color: Colors.white54, fontSize: 12))),
     ]),
   );
 }

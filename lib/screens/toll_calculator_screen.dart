@@ -162,7 +162,7 @@ class _TollCalculatorScreenState extends State<TollCalculatorScreen> {
                       Text('₹${total.toStringAsFixed(0)}', style: GoogleFonts.inter(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
                     ]),
                     const Spacer(),
-                    Text('${docs.length} tolls', style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
+                    Text('${docs.length} tolls', style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
                   ]),
                 ),
                 const SizedBox(height: 16),

@@ -203,7 +203,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
-                Text(dest, style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
+                Text(dest, style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
               ])),
             ]),
           ),
