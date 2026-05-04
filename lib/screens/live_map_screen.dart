@@ -1347,13 +1347,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             ),
           ),
 
-          // ── TOP ROUTE PLANNER BAR ──
-          SafeArea(
-            child: Positioned(
-              top: 0, left: 0, right: 0,
-              child: const SizedBox.shrink(), // placeholder - route planner is via bottom sheet
-            ),
-          ),
 
           // ── ROUTE PLANNER BUTTON (top right, below team bar) ──
           Positioned(
