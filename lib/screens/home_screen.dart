@@ -174,49 +174,64 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
-            // Scrollable menu items
+            // Scrollable categorized menu
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Quick Actions',
-                          style: GoogleFonts.inter(color: Colors.white30, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
-                    ),
-                  ),
-                  _drawerItem(Icons.speed_rounded, 'Speedometer', const Color(0xFF00BFA5), () => const SpeedScreen()),
-                  _drawerItem(Icons.account_balance_wallet_rounded, 'Expenses', const Color(0xFFFF6D00), () => const ExpenseScreen()),
-                  _drawerItem(Icons.sos_rounded, 'SOS Alert', const Color(0xFFE53935), () => const SosScreen()),
-                  _drawerItem(Icons.checklist_rounded, 'Checklist', const Color(0xFF26A69A), () => const ChecklistScreen()),
-                  _drawerItem(Icons.timeline_rounded, 'Trip Log', const Color(0xFF7C4DFF), () => const TripLogScreen()),
-                  _drawerItem(Icons.luggage_rounded, 'Packing Lists', const Color(0xFFFF7043), () => const PackingListScreen()),
-                  _drawerItem(Icons.map_rounded, 'Trip Planner', const Color(0xFF1A73E8), () => const TripPlannerScreen()),
-                  _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
-                  _drawerItem(Icons.folder_rounded, 'Documents', const Color(0xFF8D6E63), () => const DocumentWalletScreen()),
-                  _drawerItem(Icons.group_work_rounded, 'Split Costs', const Color(0xFF5C6BC0), () => const GroupExpenseScreen()),
-                  _drawerItem(Icons.alt_route_rounded, 'Route Plan', const Color(0xFF66BB6A), () => const RouteOptimizerScreen()),
-                  _drawerItem(Icons.share_rounded, 'Share Trips', const Color(0xFFFFB74D), () => const TripSharingScreen()),
-                  _drawerItem(Icons.bar_chart_rounded, 'Analytics', const Color(0xFF29B6F6), () => const ExpenseAnalyticsScreen()),
-                  _drawerItem(Icons.emoji_events_rounded, 'Badges', const Color(0xFFFF6D00), () => const TravelBadgesScreen()),
-                  _drawerItem(Icons.luggage_rounded, 'Smart Pack', const Color(0xFF26A69A), () => const SmartPackingScreen()),
-                  _drawerItem(Icons.explore_rounded, 'Discover', const Color(0xFFFFB300), () => const DiscoverPlacesScreen()),
-                  _drawerItem(Icons.auto_stories_rounded, 'Journal', const Color(0xFF7E57C2), () => const TravelJournalScreen()),
-                  _drawerItem(Icons.currency_exchange_rounded, 'Currency', const Color(0xFF1A73E8), () => const CurrencyConverterScreen()),
-                  _drawerItem(Icons.notification_important_rounded, 'Alerts', const Color(0xFFE53935), () => const TravelAlertsScreen()),
-                  _drawerItem(Icons.account_balance_wallet_rounded, 'Budget', const Color(0xFF00897B), () => const BudgetPlannerScreen()),
-                  _drawerItem(Icons.emergency_rounded, 'Emergency', const Color(0xFFE53935), () => const EmergencyInfoScreen()),
-                  _drawerItem(Icons.speed_rounded, 'Mileage', const Color(0xFF43A047), () => const MileageCalculatorScreen()),
-                  _drawerItem(Icons.leaderboard_rounded, 'Trip Stats', const Color(0xFF7C4DFF), () => const TripStatsScreen()),
-                  _drawerItem(Icons.toll_rounded, 'Tolls', const Color(0xFFFF6D00), () => const TollCalculatorScreen()),
-                  _drawerItem(Icons.cloud_rounded, 'Weather', const Color(0xFF29B6F6), () => const WeatherScreen()),
-                  _drawerItem(Icons.local_gas_station_rounded, 'Fuel Prices', const Color(0xFF43A047), () => const FuelPriceScreen()),
-                  _drawerItem(Icons.travel_explore_rounded, 'Templates', const Color(0xFF5C6BC0), () => const TripTemplatesScreen()),
-                  _drawerItem(Icons.build_circle_rounded, 'Maintenance', const Color(0xFFFF6D00), () => const MaintenanceScreen()),
-                  _drawerItem(Icons.groups_rounded, 'Community', const Color(0xFF7C4DFF), () => const CommunityFeedScreen()),
-                  _drawerItem(Icons.compare_arrows_rounded, 'Compare', const Color(0xFF00ACC1), () => const TripCompareScreen()),
+                  // ── PLAN ──
+                  _sectionTile('🗺️', 'Plan', const Color(0xFF1A73E8), [
+                    _drawerItem(Icons.map_rounded, 'Trip Planner', const Color(0xFF1A73E8), () => const TripPlannerScreen()),
+                    _drawerItem(Icons.alt_route_rounded, 'Route Plan', const Color(0xFF66BB6A), () => const RouteOptimizerScreen()),
+                    _drawerItem(Icons.travel_explore_rounded, 'Templates', const Color(0xFF5C6BC0), () => const TripTemplatesScreen()),
+                    _drawerItem(Icons.timeline_rounded, 'Trip Log', const Color(0xFF7C4DFF), () => const TripLogScreen()),
+                    _drawerItem(Icons.leaderboard_rounded, 'Trip Stats', const Color(0xFF7C4DFF), () => const TripStatsScreen()),
+                  ]),
+
+                  // ── COSTS ──
+                  _sectionTile('💰', 'Costs & Budget', const Color(0xFFFF6D00), [
+                    _drawerItem(Icons.account_balance_wallet_rounded, 'Expenses', const Color(0xFFFF6D00), () => const ExpenseScreen()),
+                    _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
+                    _drawerItem(Icons.group_work_rounded, 'Split Costs', const Color(0xFF5C6BC0), () => const GroupExpenseScreen()),
+                    _drawerItem(Icons.account_balance_wallet_rounded, 'Budget', const Color(0xFF00897B), () => const BudgetPlannerScreen()),
+                    _drawerItem(Icons.bar_chart_rounded, 'Analytics', const Color(0xFF29B6F6), () => const ExpenseAnalyticsScreen()),
+                    _drawerItem(Icons.toll_rounded, 'Tolls', const Color(0xFFFF6D00), () => const TollCalculatorScreen()),
+                    _drawerItem(Icons.currency_exchange_rounded, 'Currency', const Color(0xFF1A73E8), () => const CurrencyConverterScreen()),
+                    _drawerItem(Icons.local_gas_station_rounded, 'Fuel Prices', const Color(0xFF43A047), () => const FuelPriceScreen()),
+                    _drawerItem(Icons.speed_rounded, 'Mileage', const Color(0xFF43A047), () => const MileageCalculatorScreen()),
+                  ]),
+
+                  // ── PACK & PREP ──
+                  _sectionTile('🎒', 'Pack & Prep', const Color(0xFF26A69A), [
+                    _drawerItem(Icons.checklist_rounded, 'Checklist', const Color(0xFF26A69A), () => const ChecklistScreen()),
+                    _drawerItem(Icons.luggage_rounded, 'Packing Lists', const Color(0xFFFF7043), () => const PackingListScreen()),
+                    _drawerItem(Icons.luggage_rounded, 'Smart Pack', const Color(0xFF26A69A), () => const SmartPackingScreen()),
+                    _drawerItem(Icons.folder_rounded, 'Documents', const Color(0xFF8D6E63), () => const DocumentWalletScreen()),
+                  ]),
+
+                  // ── ON THE ROAD ──
+                  _sectionTile('🚗', 'On The Road', const Color(0xFF00BFA5), [
+                    _drawerItem(Icons.speed_rounded, 'Speedometer', const Color(0xFF00BFA5), () => const SpeedScreen()),
+                    _drawerItem(Icons.sos_rounded, 'SOS Alert', const Color(0xFFE53935), () => const SosScreen()),
+                    _drawerItem(Icons.cloud_rounded, 'Weather', const Color(0xFF29B6F6), () => const WeatherScreen()),
+                    _drawerItem(Icons.notification_important_rounded, 'Alerts', const Color(0xFFE53935), () => const TravelAlertsScreen()),
+                    _drawerItem(Icons.emergency_rounded, 'Emergency', const Color(0xFFE53935), () => const EmergencyInfoScreen()),
+                    _drawerItem(Icons.build_circle_rounded, 'Maintenance', const Color(0xFFFF6D00), () => const MaintenanceScreen()),
+                  ]),
+
+                  // ── COMMUNITY ──
+                  _sectionTile('🌍', 'Community', const Color(0xFF7C4DFF), [
+                    _drawerItem(Icons.groups_rounded, 'Feed', const Color(0xFF7C4DFF), () => const CommunityFeedScreen()),
+                    _drawerItem(Icons.compare_arrows_rounded, 'Compare', const Color(0xFF00ACC1), () => const TripCompareScreen()),
+                    _drawerItem(Icons.share_rounded, 'Share Trips', const Color(0xFFFFB74D), () => const TripSharingScreen()),
+                    _drawerItem(Icons.auto_stories_rounded, 'Journal', const Color(0xFF7E57C2), () => const TravelJournalScreen()),
+                    _drawerItem(Icons.emoji_events_rounded, 'Badges', const Color(0xFFFF6D00), () => const TravelBadgesScreen()),
+                  ]),
+
+                  // ── DISCOVER ──
+                  _sectionTile('✨', 'Discover', const Color(0xFFFFB300), [
+                    _drawerItem(Icons.explore_rounded, 'Places', const Color(0xFFFFB300), () => const DiscoverPlacesScreen()),
+                  ]),
                 ],
               ),
             ),
@@ -233,19 +248,38 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _drawerItem(IconData icon, String label, Color color, Widget Function() screenBuilder) {
     return ListTile(
       dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
       leading: Container(
-        width: 34, height: 34,
+        width: 32, height: 32,
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(9),
         ),
-        child: Icon(icon, color: color, size: 18),
+        child: Icon(icon, color: color, size: 16),
       ),
-      title: Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
+      title: Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
       onTap: () {
         Navigator.pop(context); // close drawer
         Navigator.push(context, MaterialPageRoute(builder: (_) => screenBuilder()));
       },
+    );
+  }
+
+  Widget _sectionTile(String emoji, String title, Color color, List<Widget> children) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+        childrenPadding: const EdgeInsets.only(left: 12),
+        dense: true,
+        initiallyExpanded: false,
+        collapsedIconColor: Colors.white24,
+        iconColor: color,
+        leading: Text(emoji, style: const TextStyle(fontSize: 18)),
+        title: Text(title, style: GoogleFonts.inter(
+            color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+        children: children,
+      ),
     );
   }
 }
