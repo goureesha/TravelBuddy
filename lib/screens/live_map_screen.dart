@@ -118,11 +118,19 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     super.dispose();
   }
 
-  void _showAddPoiDialog() {
-    if (_activeTeamId == null || _myLocation == null) return;
+  void _showAddPoiDialog({LatLng? presetLocation}) {
+    if (_activeTeamId == null) return;
     final titleCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     String selectedCategory = 'food';
+    // Location can be preset (from long-press) or chosen via search
+    double? poiLat = presetLocation?.latitude;
+    double? poiLng = presetLocation?.longitude;
+    String? poiLocationName = presetLocation != null ? 'Dropped pin' : null;
+    List<Map<String, dynamic>> searchResults = [];
+    bool isSearching = false;
+    final searchCtrl = TextEditingController();
+    Timer? debounce;
 
     showDialog(
       context: context,
@@ -131,73 +139,156 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           backgroundColor: const Color(0xFF1C2128),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text('Add POI', style: GoogleFonts.inter(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleCtrl,
-                  style: GoogleFonts.inter(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    labelStyle: GoogleFonts.inter(color: Colors.white38),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.06),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    style: GoogleFonts.inter(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      labelStyle: GoogleFonts.inter(color: Colors.white38),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.06),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: PoiService.categories.entries.map((e) {
-                    final isSelected = selectedCategory == e.key;
-                    return GestureDetector(
-                      onTap: () => setDialogState(() => selectedCategory = e.key),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFFF6D00).withOpacity(0.2) : Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isSelected ? const Color(0xFFFF6D00) : Colors.transparent),
-                        ),
-                        child: Text('${e.value} ${e.key}', style: GoogleFonts.inter(color: Colors.white, fontSize: 12)),
+                  const SizedBox(height: 12),
+                  // Location picker
+                  TextField(
+                    controller: searchCtrl,
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Search location...',
+                      hintStyle: GoogleFonts.inter(color: Colors.white24),
+                      prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18),
+                      suffixIcon: isSearching
+                        ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF6D00))))
+                        : null,
+                      filled: true, fillColor: Colors.white.withOpacity(0.06),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    onChanged: (val) {
+                      debounce?.cancel();
+                      debounce = Timer(const Duration(milliseconds: 500), () async {
+                        if (val.trim().length < 3) { setDialogState(() => searchResults = []); return; }
+                        setDialogState(() => isSearching = true);
+                        final results = await _searchPlaces(val);
+                        setDialogState(() { searchResults = results; isSearching = false; });
+                      });
+                    },
+                  ),
+                  if (searchResults.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 6),
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(10)),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: searchResults.length,
+                        itemBuilder: (_, i) {
+                          final r = searchResults[i];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.location_on, size: 16, color: Colors.white30),
+                            title: Text(r['name'], style: GoogleFonts.inter(color: Colors.white70, fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            onTap: () {
+                              setDialogState(() {
+                                poiLat = r['lat']; poiLng = r['lng'];
+                                poiLocationName = (r['name'] as String).split(',').first;
+                                searchResults = [];
+                                searchCtrl.clear();
+                              });
+                            },
+                          );
+                        },
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: notesCtrl,
-                  style: GoogleFonts.inter(color: Colors.white),
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: 'Notes (optional)',
-                    labelStyle: GoogleFonts.inter(color: Colors.white38),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.06),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  // Use my location button
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.my_location, size: 14, color: Color(0xFF00BFA5)),
+                      label: Text('Use my location', style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 11)),
+                      onPressed: () {
+                        if (_myLocation != null) {
+                          setDialogState(() {
+                            poiLat = _myLocation!.latitude;
+                            poiLng = _myLocation!.longitude;
+                            poiLocationName = 'My Location';
+                          });
+                        }
+                      },
+                    ),
                   ),
-                ),
-              ],
+                  // Selected location indicator
+                  if (poiLocationName != null)
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFFFF6D00).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                      child: Row(children: [
+                        const Icon(Icons.check_circle, color: Color(0xFFFF6D00), size: 16),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(poiLocationName!, style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+                      ]),
+                    ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: PoiService.categories.entries.map((e) {
+                      final isSelected = selectedCategory == e.key;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() => selectedCategory = e.key),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFFFF6D00).withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isSelected ? const Color(0xFFFF6D00) : Colors.transparent),
+                          ),
+                          child: Text('${e.value} ${e.key}', style: GoogleFonts.inter(color: Colors.white, fontSize: 12)),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesCtrl,
+                    style: GoogleFonts.inter(color: Colors.white),
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Notes (optional)',
+                      labelStyle: GoogleFonts.inter(color: Colors.white38),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.06),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+            TextButton(onPressed: () { debounce?.cancel(); Navigator.pop(ctx); }, child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              onPressed: () async {
+              onPressed: poiLat != null && poiLng != null ? () async {
                 if (titleCtrl.text.trim().isEmpty) return;
                 await PoiService.addPoi(
                   teamId: _activeTeamId!,
-                  lat: _myLocation!.latitude,
-                  lng: _myLocation!.longitude,
+                  lat: poiLat!,
+                  lng: poiLng!,
                   title: titleCtrl.text,
                   category: selectedCategory,
                   notes: notesCtrl.text,
                 );
+                debounce?.cancel();
                 if (ctx.mounted) Navigator.pop(ctx);
-              },
+              } : null,
               child: Text('Add', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
@@ -1038,6 +1129,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             onCameraMoveStarted: () {
               if (_followMe) setState(() => _followMe = false);
             },
+            onLongPress: (latLng) {
+              if (_activeTeamId != null) {
+                _showAddPoiDialog(presetLocation: latLng);
+              }
+            },
             markers: _buildAllMarkers(),
             polylines: _buildPolylines(),
             circles: _buildCircles(),
@@ -1235,30 +1331,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     onTap: _showShareEtaDialog,
                   ),
                 const Spacer(),
-                // Zoom controls
-                Column(
-                  children: [
-                    _mapButton(
-                      icon: Icons.add_rounded,
-                      onTap: () {
-                        _gMapController?.animateCamera(CameraUpdate.zoomIn());
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    _mapButton(
-                      icon: Icons.remove_rounded,
-                      onTap: () {
-                        _gMapController?.animateCamera(CameraUpdate.zoomOut());
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    // Map style button
-                    _mapButton(
-                      icon: Icons.layers_rounded,
-                      color: const Color(0xFF1A73E8),
-                      onTap: _showMapStylePicker,
-                    ),
-                  ],
+                // Map style button
+                _mapButton(
+                  icon: Icons.layers_rounded,
+                  color: const Color(0xFF1A73E8),
+                  onTap: _showMapStylePicker,
                 ),
               ],
             ),
