@@ -48,11 +48,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     Color(0xFF00E5FF), Color(0xFF76FF03),
   ];
 
-  // Nearby places
+  // Nearby places (auto-loaded)
   List<NearbyPlace> _nearbyPlaces = [];
-  Set<String> _activeCategories = {};
   bool _loadingNearby = false;
-  bool _showNearbyBar = false;
 
   // Unread messages
   bool _hasUnreadChat = false;
@@ -94,6 +92,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _gMapController?.animateCamera(
         CameraUpdate.newLatLngZoom(_myLocation!, 15),
       );
+      // Auto-load all nearby places within 10km
+      _loadAllNearby();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -107,6 +107,26 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _startTeamLocationListener();
       _startPoiListener();
       _startUnreadListener();
+    }
+  }
+
+  /// Auto-load all nearby categories within 10km
+  Future<void> _loadAllNearby() async {
+    if (_myLocation == null) return;
+    setState(() => _loadingNearby = true);
+    final center = ll.LatLng(_myLocation!.latitude, _myLocation!.longitude);
+    final allPlaces = <NearbyPlace>[];
+    for (final key in NearbyService.categories.keys) {
+      try {
+        final places = await NearbyService.fetch(center: center, categoryKey: key, radiusMeters: 10000);
+        allPlaces.addAll(places);
+      } catch (_) {}
+    }
+    if (mounted) {
+      setState(() {
+        _nearbyPlaces = allPlaces;
+        _loadingNearby = false;
+      });
     }
   }
 
@@ -1309,20 +1329,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     onTap: () => _showAddPoiDialog(),
                   ),
                 const SizedBox(width: 8),
-                // Plan Tour button
-                _mapButton(
-                  icon: Icons.route_rounded,
-                  color: _routeWaypoints.isNotEmpty ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.54),
-                  onTap: _showRoutePlannerSheet,
-                ),
-                const SizedBox(width: 8),
-                // Nearby places button
-                _mapButton(
-                  icon: Icons.near_me_rounded,
-                  color: _showNearbyBar ? const Color(0xFFFF6D00) : Colors.white.withOpacity(0.54),
-                  onTap: () => setState(() => _showNearbyBar = !_showNearbyBar),
-                ),
-                const SizedBox(width: 8),
                 // ETA share button
                 if (_activeTeamId != null)
                   _mapButton(
@@ -1341,79 +1347,73 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             ),
           ),
 
-          // ── NEARBY CATEGORY FILTER BAR ──
-          if (_showNearbyBar)
-            Positioned(
-              bottom: 82, left: 0, right: 0,
-              child: SizedBox(
-                height: 42,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: NearbyService.categories.entries.map((e) {
-                    final key = e.key;
-                    final cat = e.value;
-                    final isActive = _activeCategories.contains(key);
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _toggleCategory(key),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isActive ? const Color(0xFFFF6D00).withOpacity(0.2) : const Color(0xFF161B22).withOpacity(0.92),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isActive ? const Color(0xFFFF6D00) : Colors.white.withOpacity(0.1)),
-                          ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(cat['emoji']?.toString() ?? '', style: const TextStyle(fontSize: 14)),
-                            const SizedBox(width: 6),
-                            Text(cat['label']?.toString() ?? key, style: GoogleFonts.inter(
-                              color: isActive ? const Color(0xFFFF6D00) : Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
-                            if (isActive && _loadingNearby) ...[
-                              const SizedBox(width: 6),
-                              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFFF6D00))),
-                            ],
-                          ]),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+          // ── TOP ROUTE PLANNER BAR ──
+          SafeArea(
+            child: Positioned(
+              top: 0, left: 0, right: 0,
+              child: const SizedBox.shrink(), // placeholder - route planner is via bottom sheet
+            ),
+          ),
+
+          // ── ROUTE PLANNER BUTTON (top right, below team bar) ──
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 60,
+            right: 16,
+            child: GestureDetector(
+              onTap: _showRoutePlannerSheet,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _routeWaypoints.isNotEmpty
+                      ? const Color(0xFF00BFA5)
+                      : const Color(0xFF161B22).withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _routeWaypoints.isNotEmpty
+                      ? const Color(0xFF00BFA5)
+                      : Colors.white.withOpacity(0.12)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                  ],
                 ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.route_rounded, color: _routeWaypoints.isNotEmpty ? Colors.white : Colors.white54, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    _routeWaypoints.isNotEmpty
+                        ? '${_routeDistKm.toStringAsFixed(1)} km · ${_routeDurMin < 60 ? '${_routeDurMin.toStringAsFixed(0)} min' : '${(_routeDurMin / 60).toStringAsFixed(1)} hr'}'
+                        : 'Plan Route',
+                    style: GoogleFonts.inter(
+                      color: _routeWaypoints.isNotEmpty ? Colors.white : Colors.white54,
+                      fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  if (_routeWaypoints.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _clearRoute,
+                      child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                    ),
+                  ],
+                ]),
               ),
             ),
+          ),
 
-          // ── ROUTE INFO CHIP (when route is active) ──
-          if (_routeDistKm > 0 && !_showRoutePanel)
+          // ── LOADING NEARBY INDICATOR ──
+          if (_loadingNearby)
             Positioned(
-              top: 80, left: 16, right: 16,
-              child: GestureDetector(
-                onTap: _showRoutePlannerSheet,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF161B22).withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF00BFA5).withOpacity(0.3)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.route_rounded, color: Color(0xFF00BFA5), size: 18),
-                    const SizedBox(width: 8),
-                    Text('${_routeDistKm.toStringAsFixed(1)} km', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(width: 8),
-                    Text('·', style: GoogleFonts.inter(color: Colors.white38)),
-                    const SizedBox(width: 8),
-                    Text(_routeDurMin < 60 ? '${_routeDurMin.toStringAsFixed(0)} min' : '${(_routeDurMin / 60).toStringAsFixed(1)} hr',
-                      style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
-                    const SizedBox(width: 8),
-                    Text('·', style: GoogleFonts.inter(color: Colors.white38)),
-                    const SizedBox(width: 8),
-                    Text('${(_routeWaypoints.length - 2).clamp(0, 999)} stops', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
-                    const Spacer(),
-                    GestureDetector(onTap: _clearRoute,
-                      child: const Icon(Icons.close, color: Colors.white38, size: 18)),
-                  ]),
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161B22).withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF6D00))),
+                  const SizedBox(width: 8),
+                  Text('Loading nearby...', style: GoogleFonts.inter(color: Colors.white54, fontSize: 11)),
+                ]),
               ),
             ),
         ],

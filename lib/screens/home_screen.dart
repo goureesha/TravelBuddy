@@ -25,7 +25,6 @@ import 'trip_sharing_screen.dart';
 import 'expense_analytics_screen.dart';
 import 'travel_badges_screen.dart';
 import 'smart_packing_screen.dart';
-import 'discover_places_screen.dart';
 import 'travel_journal_screen.dart';
 import 'currency_converter_screen.dart';
 import 'travel_alerts_screen.dart';
@@ -226,11 +225,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     _drawerItem(Icons.share_rounded, 'Share Trips', const Color(0xFFFFB74D), () => const TripSharingScreen()),
                     _drawerItem(Icons.auto_stories_rounded, 'Journal', const Color(0xFF7E57C2), () => const TravelJournalScreen()),
                     _drawerItem(Icons.emoji_events_rounded, 'Badges', const Color(0xFFFF6D00), () => const TravelBadgesScreen()),
-                  ]),
-
-                  // ── DISCOVER ──
-                  _sectionTile('✨', 'Discover', const Color(0xFFFFB300), [
-                    _drawerItem(Icons.explore_rounded, 'Places', const Color(0xFFFFB300), () => const DiscoverPlacesScreen()),
                   ]),
                 ],
               ),
