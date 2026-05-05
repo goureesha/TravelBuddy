@@ -122,6 +122,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         allPlaces.addAll(places);
       } catch (_) {}
     }
+    // Pre-generate round emoji icons for each category
+    final seenCats = <String>{};
+    for (final p in allPlaces) {
+      if (seenCats.contains(p.category)) continue;
+      seenCats.add(p.category);
+      final color = _categoryColors[p.category] ?? const Color(0xFF9E9E9E);
+      await _createEmojiMarker(p.emoji, color);
+    }
     if (mounted) {
       setState(() {
         _nearbyPlaces = allPlaces;
@@ -976,6 +984,93 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   // ════════════════════════════════════
   // GOOGLE MAPS BUILDERS
   // ════════════════════════════════════
+  // Cached nearby marker icons
+  final Map<String, BitmapDescriptor> _nearbyIconCache = {};
+
+  /// Create a round emoji marker icon
+  Future<BitmapDescriptor> _createEmojiMarker(String emoji, Color bgColor) async {
+    final cacheKey = '${emoji}_${bgColor.value}';
+    if (_nearbyIconCache.containsKey(cacheKey)) return _nearbyIconCache[cacheKey]!;
+
+    const size = 80.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // Shadow
+    canvas.drawCircle(const Offset(size / 2, size / 2 + 2), size / 2 - 2,
+      Paint()..color = Colors.black.withOpacity(0.3)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+
+    // Background circle
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 4,
+      Paint()..color = bgColor);
+
+    // White border
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 4,
+      Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 3);
+
+    // Emoji text
+    final textPainter = TextPainter(
+      text: TextSpan(text: emoji, style: const TextStyle(fontSize: 36)),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2));
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final descriptor = BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), width: 40, height: 40);
+    _nearbyIconCache[cacheKey] = descriptor;
+    return descriptor;
+  }
+
+  /// Create a round member marker icon with initial letter
+  Future<BitmapDescriptor> _createMemberIcon(String name, Color color, bool isMe) async {
+    const size = 80.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // Glow
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 2,
+      Paint()..color = color.withOpacity(0.4)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+
+    // Background
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 6,
+      Paint()..color = const Color(0xFF161B22));
+
+    // Colored border
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 6,
+      Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 4);
+
+    // Initial letter
+    final letter = isMe ? '★' : (name.isNotEmpty ? name[0].toUpperCase() : '?');
+    final textPainter = TextPainter(
+      text: TextSpan(text: letter, style: TextStyle(fontSize: isMe ? 30 : 32, color: color, fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2));
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), width: 40, height: 40);
+  }
+
+  // Category colors for nearby markers
+  static const Map<String, Color> _categoryColors = {
+    'fuel': Color(0xFFFF9800),
+    'garage': Color(0xFF795548),
+    'hospital': Color(0xFFE53935),
+    'pharmacy': Color(0xFF4CAF50),
+    'toll': Color(0xFF607D8B),
+    'hotel': Color(0xFF3F51B5),
+    'restaurant': Color(0xFFFF5722),
+    'atm': Color(0xFF009688),
+    'police': Color(0xFF1565C0),
+    'parking': Color(0xFF9C27B0),
+  };
+
   Set<Marker> _buildAllMarkers() {
     final markers = <Marker>{};
 
@@ -993,13 +1088,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       ));
     }
 
-    // Nearby place markers
+    // Nearby place markers (round emoji icons)
     for (int i = 0; i < _nearbyPlaces.length; i++) {
       final p = _nearbyPlaces[i];
+      final cacheKey = '${p.emoji}_${(_categoryColors[p.category] ?? const Color(0xFF9E9E9E)).value}';
+      final icon = _nearbyIconCache[cacheKey] ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
       markers.add(Marker(
         markerId: MarkerId('nearby_${p.category}_$i'),
         position: LatLng(p.lat, p.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+        icon: icon,
         infoWindow: InfoWindow(title: '${p.emoji} ${p.name}', snippet: p.address),
         onTap: () => _showNearbyDetail(p),
       ));
@@ -1044,7 +1141,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     _teamLocationSub?.cancel();
     if (_activeTeamId == null) return;
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
-    _teamLocationSub = LocationService.getTeamLocations(_activeTeamId!).listen((snapshot) {
+    _teamLocationSub = LocationService.getTeamLocations(_activeTeamId!).listen((snapshot) async {
       if (!mounted) return;
       final markers = <Marker>{};
       final docs = snapshot.docs;
@@ -1061,12 +1158,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           _gMapController?.animateCamera(CameraUpdate.newLatLng(LatLng(lat, lng)));
         }
 
+        final memberColor = _colorForMember(i);
+        final memberIcon = await _createMemberIcon(userName, memberColor, isMe);
         markers.add(Marker(
           markerId: MarkerId('member_${doc.id}'),
           position: LatLng(lat, lng),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            isMe ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueCyan,
-          ),
+          icon: memberIcon,
           infoWindow: InfoWindow(
             title: isMe ? 'You' : userName,
             snippet: '${LocationService.formatSpeed((data['speedKmh'] as num?)?.toDouble() ?? 0)}',
@@ -1079,7 +1176,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   void _startPoiListener() {
     if (_activeTeamId == null) return;
-    PoiService.getTeamPois(_activeTeamId!).listen((snapshot) {
+    PoiService.getTeamPois(_activeTeamId!).listen((snapshot) async {
       if (!mounted) return;
       final markers = <Marker>{};
       for (final doc in snapshot.docs) {
@@ -1088,15 +1185,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         final lng = (data['lng'] as num?)?.toDouble() ?? 0;
         final title = data['title'] as String? ?? '';
         final emoji = PoiService.categories[data['category'] ?? 'other'] ?? '📍';
+        final poiIcon = await _createEmojiMarker(emoji, const Color(0xFFFF6D00));
         markers.add(Marker(
           markerId: MarkerId('poi_${doc.id}'),
           position: LatLng(lat, lng),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          icon: poiIcon,
           infoWindow: InfoWindow(title: '$emoji $title'),
           onTap: () => _showPoiDetail(doc.id, data),
         ));
       }
-      setState(() => _poiMarkers = markers);
+      if (mounted) setState(() => _poiMarkers = markers);
     });
   }
 
@@ -1303,13 +1401,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Add POI button
-                if (_activeTeamId != null)
-                  _mapButton(
-                    icon: Icons.add_location_alt_rounded,
-                    color: const Color(0xFFFF6D00),
-                    onTap: () => _showAddPoiDialog(),
-                  ),
+                // Add POI button (always visible)
+                _mapButton(
+                  icon: Icons.add_location_alt_rounded,
+                  color: const Color(0xFFFF6D00),
+                  onTap: () => _showAddPoiDialog(),
+                ),
                 const SizedBox(width: 8),
                 // ETA share button
                 if (_activeTeamId != null)
