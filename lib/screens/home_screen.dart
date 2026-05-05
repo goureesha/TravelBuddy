@@ -26,15 +26,15 @@ import 'expense_analytics_screen.dart';
 import 'travel_badges_screen.dart';
 
 import 'travel_journal_screen.dart';
-import 'currency_converter_screen.dart';
+
 import 'travel_alerts_screen.dart';
-import 'budget_planner_screen.dart';
+
 import 'emergency_info_screen.dart';
-import 'mileage_calculator_screen.dart';
+
 import 'trip_stats_screen.dart';
-import 'toll_calculator_screen.dart';
+
 import 'weather_screen.dart';
-import 'fuel_price_screen.dart';
+
 import 'trip_templates_screen.dart';
 import 'maintenance_screen.dart';
 import 'community_feed_screen.dart';
@@ -192,12 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _drawerItem(Icons.account_balance_wallet_rounded, 'Expenses', const Color(0xFFFF6D00), () => const ExpenseScreen()),
                     _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
                     _drawerItem(Icons.group_work_rounded, 'Split Costs', const Color(0xFF5C6BC0), () => const GroupExpenseScreen()),
-                    _drawerItem(Icons.account_balance_wallet_rounded, 'Budget', const Color(0xFF00897B), () => const BudgetPlannerScreen()),
                     _drawerItem(Icons.bar_chart_rounded, 'Analytics', const Color(0xFF29B6F6), () => const ExpenseAnalyticsScreen()),
-                    _drawerItem(Icons.toll_rounded, 'Tolls', const Color(0xFFFF6D00), () => const TollCalculatorScreen()),
-                    _drawerItem(Icons.currency_exchange_rounded, 'Currency', const Color(0xFF1A73E8), () => const CurrencyConverterScreen()),
-                    _drawerItem(Icons.local_gas_station_rounded, 'Fuel Prices', const Color(0xFF43A047), () => const FuelPriceScreen()),
-                    _drawerItem(Icons.speed_rounded, 'Mileage', const Color(0xFF43A047), () => const MileageCalculatorScreen()),
                   ]),
 
                   // ── PACK & PREP ──
