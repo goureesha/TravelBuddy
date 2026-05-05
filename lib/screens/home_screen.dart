@@ -621,7 +621,9 @@ class _RecentActivity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox.shrink();
+    if (uid == null) {
+      return _emptyCard('Sign in to see activity');
+    }
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -642,6 +644,32 @@ class _RecentActivity extends StatelessWidget {
                   .orderBy('timestamp', descending: true).limit(3)
                   .snapshots(),
               builder: (context, fuelSnap) {
+                // Show loading shimmer while any stream is waiting
+                final isLoading = costSnap.connectionState == ConnectionState.waiting
+                    && logSnap.connectionState == ConnectionState.waiting
+                    && fuelSnap.connectionState == ConnectionState.waiting;
+
+                if (isLoading) {
+                  return Column(
+                    children: List.generate(3, (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                        ),
+                        child: Center(
+                          child: SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 1.5,
+                              color: Colors.white.withOpacity(0.2))),
+                        ),
+                      ),
+                    )),
+                  );
+                }
+
                 final List<_ActivityItem> items = [];
 
                 // Cost entries
@@ -693,18 +721,7 @@ class _RecentActivity extends StatelessWidget {
                 final display = items.take(5).toList();
 
                 if (display.isEmpty) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
-                    ),
-                    child: Center(
-                      child: Text('No recent activity yet',
-                          style: GoogleFonts.inter(color: Colors.white24, fontSize: 13)),
-                    ),
-                  );
+                  return _emptyCard('No recent activity yet.\nStart a trip, log fuel, or add expenses!');
                 }
 
                 return Column(
@@ -758,6 +775,34 @@ class _RecentActivity extends StatelessWidget {
     );
   }
 
+  static Widget _emptyCard(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C4DFF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.history_rounded, color: Color(0xFF7C4DFF), size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(message,
+              style: GoogleFonts.inter(color: Colors.white38, fontSize: 13, height: 1.4)),
+          ),
+        ],
+      ),
+    );
+  }
+
   static String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return 'now';
@@ -782,7 +827,9 @@ class _LiveStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox.shrink();
+    if (uid == null) {
+      return _statsGrid('0', '0 km', '0', '₹0');
+    }
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -813,36 +860,40 @@ class _LiveStats extends StatelessWidget {
                   .where('userId', isEqualTo: uid)
                   .snapshots(),
               builder: (context, fuelSnap) {
+                // Show loading while all streams are waiting
+                final allWaiting = teamSnap.connectionState == ConnectionState.waiting
+                    && tripSnap.connectionState == ConnectionState.waiting
+                    && fuelSnap.connectionState == ConnectionState.waiting;
+
+                if (allWaiting) {
+                  return Column(
+                    children: [
+                      Row(children: [
+                        Expanded(child: _loadingCard()),
+                        const SizedBox(width: 12),
+                        Expanded(child: _loadingCard()),
+                      ]),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: _loadingCard()),
+                        const SizedBox(width: 12),
+                        Expanded(child: _loadingCard()),
+                      ]),
+                    ],
+                  );
+                }
+
                 double totalFuelCost = 0;
                 for (final doc in fuelSnap.data?.docs ?? []) {
                   final data = doc.data() as Map<String, dynamic>;
                   totalFuelCost += (data['totalCost'] as num?)?.toDouble() ?? 0;
                 }
 
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: _statCard('$tripCount', 'Trips', Icons.route_rounded)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _statCard(
-                          totalKm > 0 ? '${totalKm.toStringAsFixed(0)} km' : '0 km',
-                          'Distance', Icons.straighten_rounded,
-                        )),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: _statCard('$teamCount', 'Teams', Icons.people_rounded)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _statCard(
-                          '₹${totalFuelCost.toStringAsFixed(0)}',
-                          'Fuel Cost', Icons.local_gas_station_rounded,
-                        )),
-                      ],
-                    ),
-                  ],
+                return _statsGrid(
+                  '$tripCount',
+                  totalKm > 0 ? '${totalKm.toStringAsFixed(0)} km' : '0 km',
+                  '$teamCount',
+                  '₹${totalFuelCost.toStringAsFixed(0)}',
                 );
               },
             );
@@ -852,37 +903,87 @@ class _LiveStats extends StatelessWidget {
     );
   }
 
-  Widget _statCard(String value, String label, IconData icon) {
+  Widget _statsGrid(String trips, String distance, String teams, String fuel) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _statCard(trips, 'Trips', Icons.route_rounded, const Color(0xFF1A73E8))),
+            const SizedBox(width: 12),
+            Expanded(child: _statCard(distance, 'Distance', Icons.straighten_rounded, const Color(0xFF00BFA5))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _statCard(teams, 'Teams', Icons.people_rounded, const Color(0xFF7C4DFF))),
+            const SizedBox(width: 12),
+            Expanded(child: _statCard(fuel, 'Fuel Cost', Icons.local_gas_station_rounded, const Color(0xFFFF6D00))),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _loadingCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      height: 72,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Center(
+        child: SizedBox(width: 16, height: 16,
+          child: CircularProgressIndicator(strokeWidth: 1.5,
+            color: Colors.white.withOpacity(0.15))),
+      ),
+    );
+  }
+
+  Widget _statCard(String value, String label, IconData icon, Color accent) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white.withOpacity(0.3), size: 20),
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: accent, size: 18),
+          ),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.4),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.4),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
