@@ -865,25 +865,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   // ════════════════════════════════════
   // NEARBY PLACES
   // ════════════════════════════════════
-  Future<void> _toggleCategory(String key) async {
-    if (_activeCategories.contains(key)) {
-      setState(() {
-        _activeCategories.remove(key);
-        _nearbyPlaces.removeWhere((p) => p.category == key);
-      });
-      return;
-    }
-    if (_myLocation == null) return;
-    setState(() { _loadingNearby = true; _activeCategories.add(key); });
-    final center = ll.LatLng(_myLocation!.latitude, _myLocation!.longitude);
-    final places = await NearbyService.fetch(center: center, categoryKey: key);
-    if (mounted) {
-      setState(() {
-        _nearbyPlaces.addAll(places);
-        _loadingNearby = false;
-      });
-    }
-  }
+
 
   void _showNearbyDetail(NearbyPlace place) {
     showModalBottomSheet(
