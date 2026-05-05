@@ -8,7 +8,7 @@ import 'live_map_screen.dart';
 import 'fuel_track_screen.dart';
 import 'speed_screen.dart';
 import 'blog_screen.dart';
-import 'expense_screen.dart';
+
 import 'sos_screen.dart';
 
 import '../widgets/notification_bell.dart';
@@ -189,7 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // ── COSTS ──
                   _sectionTile('💰', 'Costs & Budget', const Color(0xFFFF6D00), [
-                    _drawerItem(Icons.account_balance_wallet_rounded, 'Expenses', const Color(0xFFFF6D00), () => const ExpenseScreen()),
                     _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
                     _drawerItem(Icons.group_work_rounded, 'Split Costs', const Color(0xFF5C6BC0), () => const GroupExpenseScreen()),
                     _drawerItem(Icons.bar_chart_rounded, 'Analytics', const Color(0xFF29B6F6), () => const ExpenseAnalyticsScreen()),
