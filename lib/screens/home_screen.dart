@@ -10,7 +10,7 @@ import 'speed_screen.dart';
 import 'blog_screen.dart';
 import 'expense_screen.dart';
 import 'sos_screen.dart';
-import 'checklist_screen.dart';
+
 import '../widgets/notification_bell.dart';
 import '../services/weather_service.dart';
 import 'trip_log_screen.dart';
@@ -24,7 +24,7 @@ import 'route_optimizer_screen.dart';
 import 'trip_sharing_screen.dart';
 import 'expense_analytics_screen.dart';
 import 'travel_badges_screen.dart';
-import 'smart_packing_screen.dart';
+
 import 'travel_journal_screen.dart';
 import 'currency_converter_screen.dart';
 import 'travel_alerts_screen.dart';
@@ -202,9 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // ── PACK & PREP ──
                   _sectionTile('🎒', 'Pack & Prep', const Color(0xFF26A69A), [
-                    _drawerItem(Icons.checklist_rounded, 'Checklist', const Color(0xFF26A69A), () => const ChecklistScreen()),
                     _drawerItem(Icons.luggage_rounded, 'Packing Lists', const Color(0xFFFF7043), () => const PackingListScreen()),
-                    _drawerItem(Icons.luggage_rounded, 'Smart Pack', const Color(0xFF26A69A), () => const SmartPackingScreen()),
                     _drawerItem(Icons.folder_rounded, 'Documents', const Color(0xFF8D6E63), () => const DocumentWalletScreen()),
                   ]),
 
