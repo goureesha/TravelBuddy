@@ -23,7 +23,16 @@ import 'package:share_plus/share_plus.dart';
 import 'team_chat_screen.dart';
 
 class LiveMapScreen extends StatefulWidget {
-  const LiveMapScreen({super.key});
+  final String? loadPlanId;
+  final List<Map<String, dynamic>>? loadPlanWaypoints;
+  final String? loadPlanName;
+
+  const LiveMapScreen({
+    super.key,
+    this.loadPlanId,
+    this.loadPlanWaypoints,
+    this.loadPlanName,
+  });
 
   @override
   State<LiveMapScreen> createState() => _LiveMapScreenState();
@@ -102,6 +111,49 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void initState() {
     super.initState();
     _initLocation();
+    // If navigated from templates with a pre-loaded plan
+    if (widget.loadPlanId != null && widget.loadPlanWaypoints != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadTemplatePlan();
+      });
+    }
+  }
+
+  void _loadTemplatePlan() {
+    final waypoints = widget.loadPlanWaypoints!;
+    setState(() {
+      _activePlanId = widget.loadPlanId;
+      _activePlanTeamId = null;
+      _activePlanStatus = 'planned';
+      _activePlanName = widget.loadPlanName ?? 'Trip';
+      _isRoundTrip = false;
+      _routeWaypoints = waypoints.map((w) => {
+        'name': w['name'] ?? 'Point',
+        'lat': (w['lat'] as num).toDouble(),
+        'lng': (w['lng'] as num).toDouble(),
+      }).toList();
+      _routePolyline = [];
+      _routeDistKm = 0;
+      _routeDurMin = 0;
+    });
+
+    // Auto-fetch route between all waypoints
+    if (_routeWaypoints.length >= 2) {
+      _fetchRoute();
+    }
+
+    // Zoom to first waypoint
+    if (_routeWaypoints.isNotEmpty) {
+      final first = _routeWaypoints.first;
+      _gMapController?.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(first['lat'], first['lng']), 8));
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Loaded "${widget.loadPlanName}" with ${waypoints.length} stops',
+          style: GoogleFonts.inter()),
+      backgroundColor: const Color(0xFF1A73E8),
+    ));
   }
 
   Future<void> _initLocation() async {
