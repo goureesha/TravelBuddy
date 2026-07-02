@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+import '../services/trip_plan_service.dart';
 import '../widgets/notification_bell.dart';
+import 'live_map_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
   const TripPlannerScreen({super.key});
@@ -13,127 +13,27 @@ class TripPlannerScreen extends StatefulWidget {
 }
 
 class _TripPlannerScreenState extends State<TripPlannerScreen> {
-  static final _firestore = FirebaseFirestore.instance;
-  String get _uid => FirebaseAuth.instance.currentUser!.uid;
+  /// Status → (color, icon)
+  static const _statusConfig = {
+    'planned': (Color(0xFF1A73E8), Icons.schedule_rounded),
+    'active': (Color(0xFF00BFA5), Icons.directions_run_rounded),
+    'completed': (Color(0xFF6B7280), Icons.check_circle_rounded),
+  };
 
-  CollectionReference get _tripsRef =>
-      _firestore.collection('users').doc(_uid).collection('planned_trips');
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'active':
+        return 'ACTIVE';
+      case 'completed':
+        return 'DONE';
+      default:
+        return 'PLANNED';
+    }
+  }
 
-  void _showCreateTrip() {
-    final nameCtrl = TextEditingController();
-    final destCtrl = TextEditingController();
-    DateTime? startDate;
-    DateTime? endDate;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1C2128),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Plan a Trip', style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                style: GoogleFonts.inter(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Trip Name',
-                  labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.06),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: destCtrl,
-                style: GoogleFonts.inter(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Destination',
-                  labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.06),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) setDialogState(() => startDate = picked);
-                      },
-                      icon: const Icon(Icons.calendar_today_rounded, size: 14),
-                      label: Text(
-                        startDate != null ? DateFormat('dd MMM').format(startDate!) : 'Start',
-                        style: GoogleFonts.inter(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white54,
-                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: startDate ?? DateTime.now(),
-                          firstDate: startDate ?? DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) setDialogState(() => endDate = picked);
-                      },
-                      icon: const Icon(Icons.calendar_today_rounded, size: 14),
-                      label: Text(
-                        endDate != null ? DateFormat('dd MMM').format(endDate!) : 'End',
-                        style: GoogleFonts.inter(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white54,
-                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty) return;
-                await _tripsRef.add({
-                  'name': nameCtrl.text.trim(),
-                  'destination': destCtrl.text.trim(),
-                  'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
-                  'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
-                  'createdAt': FieldValue.serverTimestamp(),
-                });
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: Text('Create', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _formatDuration(double minutes) {
+    if (minutes < 60) return '${minutes.toStringAsFixed(0)} min';
+    return '${(minutes / 60).toStringAsFixed(1)} hr';
   }
 
   @override
@@ -145,23 +45,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         actions: const [NotificationBell(), SizedBox(width: 8)],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _tripsRef.orderBy('createdAt', descending: true).snapshots(),
+        stream: TripPlanService.getPlans(null),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final trips = snapshot.data?.docs ?? [];
+          final plans = snapshot.data?.docs ?? [];
 
-          if (trips.isEmpty) {
+          if (plans.isEmpty) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.map_rounded, size: 64, color: Colors.white.withOpacity(0.12)),
                   const SizedBox(height: 12),
-                  Text('No trips planned', style: GoogleFonts.inter(color: Colors.white38, fontSize: 16)),
+                  Text('No trip plans yet', style: GoogleFonts.inter(color: Colors.white38, fontSize: 16)),
                   const SizedBox(height: 4),
-                  Text('Plan your next adventure!', style: GoogleFonts.inter(color: Colors.white24, fontSize: 13)),
+                  Text('Open the map to plan your first route!', style: GoogleFonts.inter(color: Colors.white24, fontSize: 13)),
                 ],
               ),
             );
@@ -169,21 +69,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: trips.length,
+            itemCount: plans.length,
             itemBuilder: (context, index) {
-              final doc = trips[index];
+              final doc = plans[index];
               final data = doc.data() as Map<String, dynamic>;
-              final name = data['name'] as String? ?? '';
-              final dest = data['destination'] as String? ?? '';
-              final startTs = data['startDate'] as Timestamp?;
-              final endTs = data['endDate'] as Timestamp?;
 
-              String dateRange = '';
-              if (startTs != null && endTs != null) {
-                dateRange = '${DateFormat('dd MMM').format(startTs.toDate())} - ${DateFormat('dd MMM').format(endTs.toDate())}';
-                final days = endTs.toDate().difference(startTs.toDate()).inDays;
-                dateRange += ' ($days days)';
-              }
+              final name = data['name'] as String? ?? 'Untitled';
+              final status = data['status'] as String? ?? 'planned';
+              final distKm = (data['routeDistanceKm'] as num?)?.toDouble() ?? 0;
+              final durMin = (data['routeDurationMin'] as num?)?.toDouble() ?? 0;
+              final waypoints = data['waypoints'] as List<dynamic>? ?? [];
+              final isRoundTrip = data['isRoundTrip'] as bool? ?? false;
+              final stops = data['stops'] as List<dynamic>? ?? [];
+
+              final config = _statusConfig[status] ?? _statusConfig['planned']!;
+              final statusColor = config.$1;
+              final statusIcon = config.$2;
 
               return Dismissible(
                 key: Key(doc.id),
@@ -191,54 +92,176 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                 background: Container(
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: const Icon(Icons.delete_rounded, color: Colors.redAccent),
                 ),
-                onDismissed: (_) => _tripsRef.doc(doc.id).delete(),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF161B22),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A73E8).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.flight_takeoff_rounded, color: Color(0xFF1A73E8), size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(name, style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                                if (dest.isNotEmpty)
-                                  Text(dest, style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ],
+                confirmDismiss: (direction) async {
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: const Color(0xFF1C2128),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: Text('Delete Plan', style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
+                      content: Text(
+                        'Delete "$name"? This cannot be undone.',
+                        style: GoogleFonts.inter(color: Colors.white54, fontSize: 14),
                       ),
-                      if (dateRange.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Icon(Icons.date_range_rounded, size: 14, color: Colors.white.withOpacity(0.3)),
-                            const SizedBox(width: 6),
-                            Text(dateRange, style: GoogleFonts.inter(color: Colors.white30, fontSize: 12)),
-                          ],
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54)),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Text('Delete', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ],
-                    ],
+                    ),
+                  );
+                },
+                onDismissed: (_) => TripPlanService.deletePlan(null, doc.id),
+                child: GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Open the map and tap Load Trip to view this plan',
+                          style: GoogleFonts.inter(fontSize: 13),
+                        ),
+                        backgroundColor: const Color(0xFF161B22),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveMapScreen()));
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF161B22),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Header: status badge + name ──
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(statusIcon, color: statusColor, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _statusLabel(status),
+                                    style: GoogleFonts.inter(
+                                      color: statusColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isRoundTrip) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF6D00).withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.loop_rounded, color: Color(0xFFFF6D00), size: 12),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Round Trip',
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFFFF6D00),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // ── Trip name ──
+                        Text(
+                          name,
+                          style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // ── Route summary row ──
+                        Row(
+                          children: [
+                            Icon(Icons.straighten_rounded, size: 14, color: Colors.white.withOpacity(0.3)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${distKm.toStringAsFixed(1)} km',
+                              style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(Icons.timer_outlined, size: 14, color: Colors.white.withOpacity(0.3)),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatDuration(durMin),
+                              style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(Icons.place_outlined, size: 14, color: Colors.white.withOpacity(0.3)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${waypoints.length} waypoints',
+                              style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                            ),
+                          ],
+                        ),
+
+                        // ── Stops count ──
+                        if (stops.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.flag_rounded, size: 14, color: Colors.white.withOpacity(0.3)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${stops.length} stop${stops.length == 1 ? '' : 's'} logged',
+                                style: GoogleFonts.inter(color: Colors.white30, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -247,10 +270,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateTrip,
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveMapScreen()));
+        },
         backgroundColor: const Color(0xFF00BFA5),
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: Text('Plan Trip', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.map_rounded, color: Colors.white),
+        label: Text('Plan on Map', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }

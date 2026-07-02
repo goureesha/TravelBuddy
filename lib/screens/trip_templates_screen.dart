@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/notification_bell.dart';
+import '../services/trip_plan_service.dart';
 
 class TripTemplatesScreen extends StatefulWidget {
   const TripTemplatesScreen({super.key});
@@ -11,10 +10,6 @@ class TripTemplatesScreen extends StatefulWidget {
 }
 
 class _TripTemplatesScreenState extends State<TripTemplatesScreen> {
-  String get _uid => FirebaseAuth.instance.currentUser!.uid;
-  CollectionReference get _plansRef =>
-      FirebaseFirestore.instance.collection('users').doc(_uid).collection('planned_trips');
-
   String _filter = 'All';
 
   static final _templates = <_Template>[
@@ -136,19 +131,19 @@ class _TripTemplatesScreenState extends State<TripTemplatesScreen> {
     );
 
     if (confirm == true) {
-      await _plansRef.add({
-        'destination': t.name,
-        'startDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 7))),
-        'endDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 7 + int.parse(t.duration.split(' ')[0])))),
-        'notes': t.itinerary.join('\n'),
-        'budget': t.budget.toDouble(),
-        'templateType': t.type,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await TripPlanService.savePlan(
+        teamId: null,
+        name: t.name,
+        waypoints: [],
+        routeDistanceKm: 0,
+        routeDurationMin: 0,
+        routePolyline: '',
+        isRoundTrip: false,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t.name} added to your plans!', style: GoogleFonts.inter()),
-              backgroundColor: const Color(0xFF00BFA5)),
+          SnackBar(content: Text('${t.name} added to your trip plans! Open the map to plan the route.',
+              style: GoogleFonts.inter()), backgroundColor: const Color(0xFF00BFA5)),
         );
       }
     }

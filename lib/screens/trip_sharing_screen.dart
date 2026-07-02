@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import '../widgets/notification_bell.dart';
+import '../services/trip_plan_service.dart';
 
 class TripSharingScreen extends StatefulWidget {
   const TripSharingScreen({super.key});
@@ -14,48 +14,43 @@ class TripSharingScreen extends StatefulWidget {
 }
 
 class _TripSharingScreenState extends State<TripSharingScreen> {
-  static final _firestore = FirebaseFirestore.instance;
-  String get _uid => FirebaseAuth.instance.currentUser!.uid;
-  String get _userName => FirebaseAuth.instance.currentUser?.displayName ?? 'A traveler';
-
-  CollectionReference get _tripsRef =>
-      _firestore.collection('users').doc(_uid).collection('planned_trips');
-
-  CollectionReference get _sharedRef =>
-      _firestore.collection('shared_trips');
 
   Future<void> _shareTrip(DocumentSnapshot doc) async {
     final data = doc.data() as Map<String, dynamic>;
     final tripName = data['name'] as String? ?? 'Trip';
 
-    // Create a shared trip document with a unique code
-    final shareDoc = await _sharedRef.add({
-      'originalId': doc.id,
-      'ownerId': _uid,
-      'ownerName': _userName,
-      'tripName': tripName,
-      'tripData': data,
-      'sharedAt': FieldValue.serverTimestamp(),
-      'views': 0,
-    });
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFF00BFA5))),
+    );
 
-    final shareCode = shareDoc.id.substring(0, 8).toUpperCase();
-    await shareDoc.update({'shareCode': shareCode});
-
+    final code = await TripPlanService.sharePlan(null, doc.id);
     if (!mounted) return;
+    Navigator.pop(context); // dismiss loading
 
+    if (code == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to share trip', style: GoogleFonts.inter())),
+      );
+      return;
+    }
+
+    _showShareDialog(tripName, code, data);
+  }
+
+  void _showShareDialog(String tripName, String code, Map<String, dynamic> data) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2128),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.share_rounded, color: Color(0xFF00BFA5), size: 22),
-            const SizedBox(width: 8),
-            Text('Trip Shared!', style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
-          ],
-        ),
+        title: Row(children: [
+          const Icon(Icons.share_rounded, color: Color(0xFF00BFA5), size: 22),
+          const SizedBox(width: 8),
+          Text('Trip Shared!', style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
+        ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -71,12 +66,13 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(shareCode, style: GoogleFonts.inter(
-                    color: const Color(0xFF00BFA5), fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 3)),
+                  Text(code, style: GoogleFonts.inter(
+                      color: const Color(0xFF00BFA5), fontSize: 24,
+                      fontWeight: FontWeight.w900, letterSpacing: 3)),
                   const SizedBox(width: 12),
                   GestureDetector(
                     onTap: () {
-                      Clipboard.setData(ClipboardData(text: shareCode));
+                      Clipboard.setData(ClipboardData(text: code));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Code copied!', style: GoogleFonts.inter())),
                       );
@@ -86,14 +82,36 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            // Share via WhatsApp button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                label: Text('Share via WhatsApp', style: GoogleFonts.inter(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  final text = TripPlanService.getShareText(data, code);
+                  SharePlus.instance.share(ShareParams(text: text));
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
             Text('They can enter this code to view your trip plan.',
-                style: GoogleFonts.inter(color: Colors.white30, fontSize: 11), textAlign: TextAlign.center),
+                style: GoogleFonts.inter(color: Colors.white30, fontSize: 11),
+                textAlign: TextAlign.center),
           ],
         ),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00BFA5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () => Navigator.pop(ctx),
             child: Text('Done', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
@@ -128,9 +146,12 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A73E8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () async {
               final code = codeCtrl.text.trim().toUpperCase();
               if (code.isEmpty) return;
@@ -146,8 +167,8 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
 
   Future<void> _loadSharedTrip(String code) async {
     try {
-      final query = await _sharedRef.where('shareCode', isEqualTo: code).limit(1).get();
-      if (query.docs.isEmpty) {
+      final tripData = await TripPlanService.loadSharedPlan(code);
+      if (tripData == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Trip not found — check the code', style: GoogleFonts.inter())),
@@ -156,16 +177,19 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
         return;
       }
 
-      final doc = query.docs.first;
-      final data = doc.data() as Map<String, dynamic>;
-      await doc.reference.update({'views': FieldValue.increment(1)});
-
       if (!mounted) return;
 
-      final tripData = data['tripData'] as Map<String, dynamic>? ?? {};
-      final ownerName = data['ownerName'] as String? ?? 'Someone';
-      final tripName = data['tripName'] as String? ?? 'Trip';
-      final itinerary = (tripData['itinerary'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final tripName = tripData['name'] as String? ?? 'Trip';
+      final waypoints = (tripData['waypoints'] as List? ?? [])
+          .map((w) => Map<String, dynamic>.from(w as Map))
+          .toList();
+      final dist = (tripData['routeDistanceKm'] as num?)?.toStringAsFixed(1) ?? '0';
+      final dur = (tripData['routeDurationMin'] as num?)?.toDouble() ?? 0;
+      final durText = dur < 60
+          ? '${dur.toStringAsFixed(0)} min'
+          : '${(dur / 60).toStringAsFixed(1)} hr';
+      final isRound = tripData['isRoundTrip'] == true;
+      final stops = tripData['stops'] as List? ?? [];
 
       showDialog(
         context: context,
@@ -178,44 +202,88 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.flight_takeoff_rounded, color: Color(0xFF1A73E8), size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(tripName, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
+                Row(children: [
+                  const Icon(Icons.route_rounded, color: Color(0xFF1A73E8), size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(tripName, style: GoogleFonts.inter(
+                      color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                // Route summary
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF00BFA5)]),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                    _infoChip(Icons.place, '${waypoints.length} pts'),
+                    Container(width: 1, height: 24, color: Colors.white24),
+                    _infoChip(Icons.straighten, '$dist km'),
+                    Container(width: 1, height: 24, color: Colors.white24),
+                    _infoChip(Icons.timer, durText),
+                    if (isRound) ...[
+                      Container(width: 1, height: 24, color: Colors.white24),
+                      _infoChip(Icons.loop, 'Round'),
+                    ],
+                  ]),
                 ),
-                Text('Shared by $ownerName', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
-                if (tripData['startDate'] != null) ...[
-                  const SizedBox(height: 4),
-                  Text('${tripData['startDate']} → ${tripData['endDate'] ?? ''}',
-                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 14),
+                // Waypoints list
+                if (waypoints.isNotEmpty) ...[
+                  Text('Route', style: GoogleFonts.inter(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  ...waypoints.take(10).map((w) {
+                    final type = w['type'] as String? ?? 'stop';
+                    final icon = type == 'start' ? Icons.trip_origin : type == 'end' ? Icons.flag_circle : Icons.circle;
+                    final color = type == 'start' ? const Color(0xFF4CAF50) : type == 'end' ? Colors.redAccent : const Color(0xFFFF9800);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Icon(icon, color: color, size: 14),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(w['name'] as String? ?? 'Point',
+                            style: GoogleFonts.inter(color: Colors.white70, fontSize: 13))),
+                      ]),
+                    );
+                  }),
+                ],
+                if (stops.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('${stops.length} activity stops logged',
+                      style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
                 ],
                 const SizedBox(height: 16),
-                if (itinerary.isNotEmpty) ...[
-                  Text('Itinerary', style: GoogleFonts.inter(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  ...itinerary.take(10).map((item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF1A73E8), shape: BoxShape.circle)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(item['activity'] as String? ?? '',
-                              style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
-                        ),
-                      ],
+                // Clone to my trips button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00BFA5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                  )),
-                ] else
-                  Text('No itinerary details', style: GoogleFonts.inter(color: Colors.white24, fontSize: 13)),
+                    icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                    label: Text('Add to My Trips', style: GoogleFonts.inter(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                    onPressed: () async {
+                      final newId = await TripPlanService.cloneSharedPlan(tripData);
+                      if (newId != null && ctx.mounted) {
+                        Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Trip "$tripName" added to your plans! ✓', style: GoogleFonts.inter()),
+                            backgroundColor: const Color(0xFF00BFA5),
+                          ));
+                        }
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -228,6 +296,14 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
         );
       }
     }
+  }
+
+  Widget _infoChip(IconData icon, String text) {
+    return Column(children: [
+      Icon(icon, color: Colors.white70, size: 16),
+      const SizedBox(height: 2),
+      Text(text, style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+    ]);
   }
 
   @override
@@ -294,13 +370,13 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('Your Trips', style: GoogleFonts.inter(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
+              child: Text('Your Trip Plans', style: GoogleFonts.inter(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
 
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _tripsRef.orderBy('createdAt', descending: true).snapshots(),
+              stream: TripPlanService.getPlans(null),
               builder: (context, snapshot) {
                 final trips = snapshot.data?.docs ?? [];
 
@@ -309,10 +385,10 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.flight_rounded, size: 48, color: Colors.white.withOpacity(0.1)),
+                        Icon(Icons.route_rounded, size: 48, color: Colors.white.withOpacity(0.1)),
                         const SizedBox(height: 12),
-                        Text('No trips to share', style: GoogleFonts.inter(color: Colors.white38, fontSize: 14)),
-                        Text('Create trips in Trip Planner first', style: GoogleFonts.inter(color: Colors.white24, fontSize: 12)),
+                        Text('No trip plans to share', style: GoogleFonts.inter(color: Colors.white38, fontSize: 14)),
+                        Text('Plan a route on the map first', style: GoogleFonts.inter(color: Colors.white24, fontSize: 12)),
                       ],
                     ),
                   );
@@ -324,8 +400,10 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
                   itemBuilder: (context, index) {
                     final doc = trips[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    final name = data['name'] as String? ?? 'Unnamed Trip';
-                    final startDate = data['startDate'] as String? ?? '';
+                    final name = data['name'] as String? ?? 'Trip';
+                    final dist = (data['routeDistanceKm'] as num?)?.toStringAsFixed(1) ?? '0';
+                    final waypoints = data['waypoints'] as List? ?? [];
+                    final shareCode = data['shareCode'] as String?;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -340,10 +418,10 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
                           Container(
                             width: 42, height: 42,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF7C4DFF).withOpacity(0.15),
+                              color: const Color(0xFF1A73E8).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.flight_takeoff_rounded, color: Color(0xFF7C4DFF), size: 20),
+                            child: const Icon(Icons.route_rounded, color: Color(0xFF1A73E8), size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -351,8 +429,22 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(name, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                                if (startDate.isNotEmpty)
-                                  Text(startDate, style: GoogleFonts.inter(color: Colors.white30, fontSize: 11)),
+                                Row(children: [
+                                  Text('${waypoints.length} pts · $dist km',
+                                      style: GoogleFonts.inter(color: Colors.white30, fontSize: 11)),
+                                  if (shareCode != null) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00BFA5).withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(shareCode, style: GoogleFonts.inter(
+                                          color: const Color(0xFF00BFA5), fontSize: 9, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ]),
                               ],
                             ),
                           ),

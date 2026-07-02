@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show sin, cos, sqrt, atan2;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -10,12 +11,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/location_service.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/team_service.dart';
 import '../services/poi_service.dart';
 import '../services/route_service.dart';
 import '../services/nearby_service.dart';
 import '../services/chat_service.dart';
 import '../services/eta_service.dart';
+import '../services/trip_plan_service.dart';
+import 'package:share_plus/share_plus.dart';
 import 'team_chat_screen.dart';
 
 class LiveMapScreen extends StatefulWidget {
@@ -40,6 +44,24 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   double _routeDistKm = 0;
   double _routeDurMin = 0;
   bool _showRoutePanel = false; // kept for route info chip visibility
+  bool _isRoundTrip = false;
+
+  // Trip plan tracking
+  String? _activePlanId;
+  String? _activePlanTeamId;
+  String? _activePlanStatus; // planned | active | completed
+  String? _activePlanName;
+  List<Map<String, dynamic>> _tripStops = []; // logged activity stops
+  Set<Marker> _stopMarkers = {};
+
+  // Live GPS tracking (Start/Stop)
+  bool _isLiveTracking = false;
+  List<LatLng> _trackPoints = [];
+  DateTime? _trackStartTime;
+  StreamSubscription<dynamic>? _trackGpsSub;
+  double _trackDistanceKm = 0;
+  String _trackElapsed = '00:00';
+  Timer? _trackTimer;
 
   // Member colors
   static const List<Color> _memberColors = [
@@ -143,6 +165,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     LocationService.stopBroadcasting();
     _teamLocationSub?.cancel();
     _unreadSub?.cancel();
+    _trackGpsSub?.cancel();
+    _trackTimer?.cancel();
     super.dispose();
   }
 
@@ -598,7 +622,931 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     setState(() {
       _routeWaypoints.clear(); _routePolyline = [];
       _routeDistKm = 0; _routeDurMin = 0;
+      _isRoundTrip = false;
+      _activePlanId = null;
+      _activePlanTeamId = null;
+      _activePlanStatus = null;
+      _activePlanName = null;
+      _tripStops = [];
+      _stopMarkers = {};
     });
+  }
+
+  // ════════════════════════════════════
+  // LIVE GPS TRACKING (Start/Stop → Recents)
+  // ════════════════════════════════════
+
+  double _haversine(LatLng a, LatLng b) {
+    const R = 6371.0; // km
+    final dLat = (b.latitude - a.latitude) * 3.141592653589793 / 180;
+    final dLng = (b.longitude - a.longitude) * 3.141592653589793 / 180;
+    final lat1 = a.latitude * 3.141592653589793 / 180;
+    final lat2 = b.latitude * 3.141592653589793 / 180;
+    final h = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLng / 2) * sin(dLng / 2);
+    return R * 2 * atan2(sqrt(h), sqrt(1 - h));
+  }
+
+  void _startLiveTracking() async {
+    final hasPermission = await LocationService.requestPermission();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Location permission required', style: GoogleFonts.inter())),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isLiveTracking = true;
+      _trackPoints = [];
+      _trackDistanceKm = 0;
+      _trackElapsed = '00:00';
+      _trackStartTime = DateTime.now();
+    });
+
+    // Elapsed timer — updates every second
+    _trackTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _trackStartTime == null) return;
+      final diff = DateTime.now().difference(_trackStartTime!);
+      final h = diff.inHours;
+      final m = diff.inMinutes.remainder(60);
+      final s = diff.inSeconds.remainder(60);
+      setState(() {
+        _trackElapsed = h > 0
+            ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+            : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+      });
+    });
+
+    // GPS stream — records each position
+    _trackGpsSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // every 10 metres
+      ),
+    ).listen((pos) {
+      if (!mounted) return;
+      final newPoint = LatLng(pos.latitude, pos.longitude);
+
+      setState(() {
+        if (_trackPoints.isNotEmpty) {
+          _trackDistanceKm += _haversine(_trackPoints.last, newPoint);
+        }
+        _trackPoints.add(newPoint);
+        _myLocation = newPoint;
+        _accuracy = pos.accuracy;
+      });
+
+      // Keep camera centered
+      if (_followMe) {
+        _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoint));
+      }
+    });
+  }
+
+  Future<void> _stopLiveTracking() async {
+    _trackGpsSub?.cancel();
+    _trackGpsSub = null;
+    _trackTimer?.cancel();
+    _trackTimer = null;
+
+    final duration = _trackStartTime != null
+        ? DateTime.now().difference(_trackStartTime!)
+        : Duration.zero;
+    final points = List<LatLng>.from(_trackPoints);
+    final distKm = _trackDistanceKm;
+    final elapsed = _trackElapsed;
+
+    setState(() {
+      _isLiveTracking = false;
+    });
+
+    if (points.length < 2) {
+      setState(() {
+        _trackPoints = [];
+        _trackDistanceKm = 0;
+        _trackElapsed = '00:00';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Too short to save — need at least 2 points', style: GoogleFonts.inter())),
+        );
+      }
+      return;
+    }
+
+    // Save to Firestore → recent_tracks
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final startName = 'Track ${_trackStartTime?.hour.toString().padLeft(2, '0')}:${_trackStartTime?.minute.toString().padLeft(2, '0')}';
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('recent_tracks')
+            .add({
+          'name': startName,
+          'distanceKm': double.parse(distKm.toStringAsFixed(2)),
+          'durationSeconds': duration.inSeconds,
+          'durationText': elapsed,
+          'pointCount': points.length,
+          'startLat': points.first.latitude,
+          'startLng': points.first.longitude,
+          'endLat': points.last.latitude,
+          'endLng': points.last.longitude,
+          'polyline': points.map((p) => '${p.latitude},${p.longitude}').join(';'),
+          'createdAt': FieldValue.serverTimestamp(),
+          'userId': uid,
+        });
+      } catch (e) {
+        debugPrint('Error saving track: $e');
+      }
+    }
+
+    // Show summary
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2128),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.check_circle_rounded, color: Color(0xFF00BFA5), size: 22),
+          const SizedBox(width: 8),
+          Text('Track Saved!', style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
+        ]),
+        content: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF00BFA5)]),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            Column(children: [
+              Text(distKm.toStringAsFixed(1), style: GoogleFonts.inter(
+                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('km', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+            ]),
+            Container(width: 1, height: 32, color: Colors.white24),
+            Column(children: [
+              Text(elapsed, style: GoogleFonts.inter(
+                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('time', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+            ]),
+            Container(width: 1, height: 32, color: Colors.white24),
+            Column(children: [
+              Text('${points.length}', style: GoogleFonts.inter(
+                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('points', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+            ]),
+          ]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _trackPoints = [];
+                _trackDistanceKm = 0;
+                _trackElapsed = '00:00';
+              });
+            },
+            child: Text('Clear Trail', style: GoogleFonts.inter(color: Colors.white38)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BFA5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Keep on Map', style: GoogleFonts.inter(
+                color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════
+  // TRIP PLAN: SAVE
+  // ════════════════════════════════════
+  void _savePlanDialog() {
+    final nameCtrl = TextEditingController(text: _activePlanName ?? '');
+    bool roundTrip = _isRoundTrip;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2128),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00BFA5).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.save_rounded, color: Color(0xFF00BFA5), size: 20),
+            ),
+            const SizedBox(width: 10),
+            Text(_activePlanId != null ? 'Update Plan' : 'Save Plan',
+                style: GoogleFonts.inter(color: Colors.white, fontSize: 18)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: GoogleFonts.inter(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Trip Name',
+                  hintText: 'e.g. Bangalore to Goa',
+                  labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+                  hintStyle: GoogleFonts.inter(color: Colors.white24, fontSize: 13),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.06),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: () {
+                  setDlgState(() => roundTrip = !roundTrip);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: roundTrip ? const Color(0xFF1A73E8).withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: roundTrip ? const Color(0xFF1A73E8).withOpacity(0.4) : Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.loop_rounded, color: roundTrip ? const Color(0xFF1A73E8) : Colors.white38, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Round Trip', style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+                      Text('Return to start point', style: GoogleFonts.inter(color: Colors.white38, fontSize: 11)),
+                    ])),
+                    Icon(roundTrip ? Icons.check_circle : Icons.circle_outlined,
+                        color: roundTrip ? const Color(0xFF1A73E8) : Colors.white24, size: 22),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Route summary
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                  _summaryChip(Icons.place, '${_routeWaypoints.length} pts'),
+                  _summaryChip(Icons.straighten, '${_routeDistKm.toStringAsFixed(1)} km'),
+                  _summaryChip(Icons.timer, _routeDurMin < 60
+                      ? '${_routeDurMin.toStringAsFixed(0)} min'
+                      : '${(_routeDurMin / 60).toStringAsFixed(1)} hr'),
+                ]),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00BFA5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.check, color: Colors.white, size: 18),
+              label: Text('Save', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
+                // Build waypoints with types
+                final waypoints = <Map<String, dynamic>>[];
+                for (int i = 0; i < _routeWaypoints.length; i++) {
+                  final w = _routeWaypoints[i];
+                  String type = 'stop';
+                  if (i == 0) type = 'start';
+                  else if (i == _routeWaypoints.length - 1) type = roundTrip ? 'start' : 'end';
+                  waypoints.add({
+                    'name': w['name'] ?? 'Point ${i + 1}',
+                    'lat': w['lat'],
+                    'lng': w['lng'],
+                    'order': i,
+                    'type': type,
+                  });
+                }
+                // Encode polyline as JSON string for storage
+                final polylineEncoded = _routePolyline.isNotEmpty
+                    ? _routePolyline.map((p) => '${p.latitude},${p.longitude}').join(';')
+                    : '';
+                final planId = await TripPlanService.savePlan(
+                  teamId: _activePlanTeamId,
+                  planId: _activePlanId,
+                  name: nameCtrl.text.trim(),
+                  waypoints: waypoints,
+                  routeDistanceKm: _routeDistKm,
+                  routeDurationMin: _routeDurMin,
+                  routePolyline: polylineEncoded,
+                  isRoundTrip: roundTrip,
+                );
+                if (mounted) {
+                  setState(() {
+                    _activePlanId = planId;
+                    _activePlanName = nameCtrl.text.trim();
+                    _isRoundTrip = roundTrip;
+                    _activePlanStatus = _activePlanStatus ?? 'planned';
+                  });
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Trip plan "${nameCtrl.text.trim()}" saved! ✓',
+                        style: GoogleFonts.inter()),
+                    backgroundColor: const Color(0xFF00BFA5),
+                  ));
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryChip(IconData icon, String text) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, color: Colors.white38, size: 14),
+      const SizedBox(width: 4),
+      Text(text, style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
+    ]);
+  }
+
+  // ════════════════════════════════════
+  // TRIP PLAN: LOAD
+  // ════════════════════════════════════
+  void _showLoadTripSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        // Show both personal and team plans
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.3,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, scrollCtrl) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+              Row(children: [
+                const Icon(Icons.folder_open_rounded, color: Color(0xFF1A73E8), size: 22),
+                const SizedBox(width: 8),
+                Text('Load Trip Plan', style: GoogleFonts.inter(
+                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              ]),
+              const SizedBox(height: 4),
+              Text('Tap a plan to load it on the map',
+                  style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: TripPlanService.getPlans(_activeTeamId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Color(0xFF1A73E8)));
+                    }
+                    final docs = snapshot.data?.docs ?? [];
+                    if (docs.isEmpty) {
+                      return Center(child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.map_rounded, size: 48, color: Colors.white.withOpacity(0.12)),
+                          const SizedBox(height: 8),
+                          Text('No saved plans yet', style: GoogleFonts.inter(color: Colors.white38)),
+                          const SizedBox(height: 4),
+                          Text('Plan a route and tap Save', style: GoogleFonts.inter(color: Colors.white24, fontSize: 12)),
+                        ],
+                      ));
+                    }
+                    return ListView.builder(
+                      controller: scrollCtrl,
+                      itemCount: docs.length,
+                      itemBuilder: (_, i) {
+                        final doc = docs[i];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = data['name'] as String? ?? 'Trip';
+                        final status = data['status'] as String? ?? 'planned';
+                        final dist = (data['routeDistanceKm'] as num?)?.toStringAsFixed(1) ?? '0';
+                        final dur = (data['routeDurationMin'] as num?)?.toDouble() ?? 0;
+                        final durText = dur < 60
+                            ? '${dur.toStringAsFixed(0)} min'
+                            : '${(dur / 60).toStringAsFixed(1)} hr';
+                        final waypoints = data['waypoints'] as List? ?? [];
+                        final isRound = data['isRoundTrip'] == true;
+                        final isActive = doc.id == _activePlanId;
+
+                        Color statusColor;
+                        String statusLabel;
+                        IconData statusIcon;
+                        switch (status) {
+                          case 'active':
+                            statusColor = const Color(0xFF00BFA5);
+                            statusLabel = 'ACTIVE';
+                            statusIcon = Icons.play_circle;
+                            break;
+                          case 'completed':
+                            statusColor = Colors.white38;
+                            statusLabel = 'DONE';
+                            statusIcon = Icons.check_circle;
+                            break;
+                          default:
+                            statusColor = const Color(0xFF1A73E8);
+                            statusLabel = 'PLANNED';
+                            statusIcon = Icons.map_rounded;
+                        }
+
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _loadPlanOntoMap(doc.id, data);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? const Color(0xFF1A73E8).withOpacity(0.1)
+                                  : const Color(0xFF161B22),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: isActive
+                                  ? const Color(0xFF1A73E8).withOpacity(0.4)
+                                  : Colors.white.withOpacity(0.06)),
+                            ),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Row(children: [
+                                Icon(statusIcon, color: statusColor, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(name, style: GoogleFonts.inter(
+                                    color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(statusLabel, style: GoogleFonts.inter(
+                                      color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ]),
+                              const SizedBox(height: 8),
+                              Row(children: [
+                                _summaryChip(Icons.place, '${waypoints.length} pts'),
+                                const SizedBox(width: 12),
+                                _summaryChip(Icons.straighten, '$dist km'),
+                                const SizedBox(width: 12),
+                                _summaryChip(Icons.timer, durText),
+                                if (isRound) ...[
+                                  const SizedBox(width: 12),
+                                  _summaryChip(Icons.loop, 'Round'),
+                                ],
+                              ]),
+                            ]),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ]),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Load a saved plan onto the map
+  void _loadPlanOntoMap(String planId, Map<String, dynamic> data) {
+    final waypoints = (data['waypoints'] as List? ?? [])
+        .map((w) => Map<String, dynamic>.from(w as Map))
+        .toList();
+    waypoints.sort((a, b) => ((a['order'] as num?) ?? 0).compareTo((b['order'] as num?) ?? 0));
+
+    final polylineStr = data['routePolyline'] as String? ?? '';
+    List<LatLng> polyline = [];
+    if (polylineStr.isNotEmpty) {
+      polyline = polylineStr.split(';').map((p) {
+        final parts = p.split(',');
+        if (parts.length == 2) {
+          return LatLng(double.tryParse(parts[0]) ?? 0, double.tryParse(parts[1]) ?? 0);
+        }
+        return const LatLng(0, 0);
+      }).where((p) => p.latitude != 0 || p.longitude != 0).toList();
+    }
+
+    final stops = (data['stops'] as List? ?? [])
+        .map((s) => Map<String, dynamic>.from(s as Map))
+        .toList();
+
+    setState(() {
+      _activePlanId = planId;
+      _activePlanTeamId = _activeTeamId;
+      _activePlanStatus = data['status'] as String? ?? 'planned';
+      _activePlanName = data['name'] as String? ?? 'Trip';
+      _isRoundTrip = data['isRoundTrip'] == true;
+      _routeWaypoints = waypoints.map((w) => {
+        'name': w['name'] ?? 'Point',
+        'lat': (w['lat'] as num).toDouble(),
+        'lng': (w['lng'] as num).toDouble(),
+      }).toList();
+      _routePolyline = polyline;
+      _routeDistKm = (data['routeDistanceKm'] as num?)?.toDouble() ?? 0;
+      _routeDurMin = (data['routeDurationMin'] as num?)?.toDouble() ?? 0;
+      _tripStops = stops;
+    });
+
+    _buildStopMarkers();
+
+    // If polyline empty but waypoints exist, refetch route
+    if (_routePolyline.isEmpty && _routeWaypoints.length >= 2) {
+      _fetchRoute();
+    }
+
+    // Zoom to fit the route
+    if (_routeWaypoints.isNotEmpty) {
+      final firstWp = _routeWaypoints.first;
+      _gMapController?.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(firstWp['lat'], firstWp['lng']), 10));
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Loaded "$_activePlanName"', style: GoogleFonts.inter()),
+      backgroundColor: const Color(0xFF1A73E8),
+    ));
+  }
+
+  // ════════════════════════════════════
+  // TRIP PLAN: START / COMPLETE
+  // ════════════════════════════════════
+  Future<void> _startTripFlow() async {
+    if (_activePlanId == null) return;
+    await TripPlanService.startTrip(_activePlanTeamId, _activePlanId!);
+    setState(() => _activePlanStatus = 'active');
+
+    // Start location sharing if team is set
+    if (_activeTeamId != null && !_isSharing) {
+      _toggleSharing();
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('🚗 Trip started! Your location is being shared.'),
+        backgroundColor: Color(0xFF00BFA5),
+      ));
+    }
+  }
+
+  Future<void> _completeTripFlow() async {
+    if (_activePlanId == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2128),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Complete Trip?', style: GoogleFonts.inter(color: Colors.white)),
+        content: Text('This will mark "${_activePlanName}" as completed and stop location sharing.',
+            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white54))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Complete', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await TripPlanService.completeTrip(_activePlanTeamId, _activePlanId!);
+    setState(() => _activePlanStatus = 'completed');
+
+    // Stop location sharing
+    if (_isSharing) _toggleSharing();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('✓ Trip completed! All stops have been saved.'),
+        backgroundColor: Color(0xFF1A73E8),
+      ));
+    }
+  }
+
+  // ════════════════════════════════════
+  // TRIP PLAN: ADD STOP (during live trip)
+  // ════════════════════════════════════
+  void _showAddStopSheet() {
+    if (_activePlanId == null) return;
+    final notesCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    String selectedActivity = 'other';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+              Row(children: [
+                const Icon(Icons.add_location_alt_rounded, color: Color(0xFFFF6D00), size: 22),
+                const SizedBox(width: 8),
+                Text('Add Stop', style: GoogleFonts.inter(
+                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              ]),
+              const SizedBox(height: 4),
+              Text('Log what you did at this stop',
+                  style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+              const SizedBox(height: 16),
+              // Activity picker
+              Wrap(spacing: 8, runSpacing: 8,
+                children: TripPlanService.activityTypes.entries.map((e) {
+                  final isSelected = selectedActivity == e.key;
+                  return GestureDetector(
+                    onTap: () => setSheetState(() => selectedActivity = e.key),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFFF6D00).withOpacity(0.2) : Colors.white.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isSelected ? const Color(0xFFFF6D00) : Colors.transparent),
+                      ),
+                      child: Text(
+                        '${e.value['emoji']} ${e.value['label']}',
+                        style: GoogleFonts.inter(color: isSelected ? Colors.white : Colors.white54, fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: nameCtrl,
+                style: GoogleFonts.inter(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Stop Name',
+                  hintText: 'e.g. HP Petrol Pump',
+                  labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+                  hintStyle: GoogleFonts.inter(color: Colors.white24, fontSize: 13),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.06),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: notesCtrl,
+                style: GoogleFonts.inter(color: Colors.white),
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'Notes (optional)',
+                  hintText: 'e.g. Filled 20L diesel',
+                  labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+                  hintStyle: GoogleFonts.inter(color: Colors.white24, fontSize: 13),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.06),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 6),
+              // GPS auto-fill indicator
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00BFA5).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.my_location, color: Color(0xFF00BFA5), size: 14),
+                  const SizedBox(width: 6),
+                  Text('Using your current GPS location',
+                      style: GoogleFonts.inter(color: const Color(0xFF00BFA5), fontSize: 11)),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                  label: Text('Add Stop', style: GoogleFonts.inter(
+                      color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final stopName = nameCtrl.text.trim().isEmpty
+                        ? TripPlanService.activityTypes[selectedActivity]?['label'] ?? 'Stop'
+                        : nameCtrl.text.trim();
+                    final lat = _myLocation?.latitude ?? 0;
+                    final lng = _myLocation?.longitude ?? 0;
+
+                    await TripPlanService.addStop(
+                      teamId: _activePlanTeamId,
+                      planId: _activePlanId!,
+                      name: stopName,
+                      lat: lat,
+                      lng: lng,
+                      activity: selectedActivity,
+                      notes: notesCtrl.text,
+                    );
+
+                    // Add to local state
+                    final newStop = {
+                      'name': stopName,
+                      'lat': lat,
+                      'lng': lng,
+                      'activity': selectedActivity,
+                      'notes': notesCtrl.text.trim(),
+                      'timestamp': DateTime.now().toIso8601String(),
+                    };
+                    setState(() => _tripStops.add(newStop));
+                    _buildStopMarkers();
+
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      final emoji = TripPlanService.activityTypes[selectedActivity]?['emoji'] ?? '📍';
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('$emoji Stop added: $stopName'),
+                        backgroundColor: const Color(0xFFFF6D00),
+                      ));
+                    }
+                  },
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════
+  // TRIP PLAN: SHARE
+  // ════════════════════════════════════
+  void _showSharePlanDialog() {
+    if (_activePlanId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+          Text('Share Trip Plan', style: GoogleFonts.inter(
+              color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          // Share in-app (code)
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A73E8).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.code_rounded, color: Color(0xFF1A73E8), size: 22),
+            ),
+            title: Text('Share Code', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w500)),
+            subtitle: Text('Generate a code others can enter in the app', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final code = await TripPlanService.sharePlan(_activePlanTeamId, _activePlanId!);
+              if (code != null && mounted) {
+                showDialog(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    backgroundColor: const Color(0xFF1C2128),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: Text('Share Code', style: GoogleFonts.inter(color: Colors.white)),
+                    content: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00BFA5).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF00BFA5).withOpacity(0.3)),
+                        ),
+                        child: Text(code, style: GoogleFonts.inter(
+                            color: const Color(0xFF00BFA5), fontSize: 24,
+                            fontWeight: FontWeight.w900, letterSpacing: 3)),
+                      ),
+                    ]),
+                    actions: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BFA5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        onPressed: () => Navigator.pop(c),
+                        child: Text('Done', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          // Share via WhatsApp / external
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF25D366).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.share_rounded, color: Color(0xFF25D366), size: 22),
+            ),
+            title: Text('Share via WhatsApp', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w500)),
+            subtitle: Text('Send trip details to anyone', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+            onTap: () async {
+              Navigator.pop(ctx);
+              // First generate a share code
+              final code = await TripPlanService.sharePlan(_activePlanTeamId, _activePlanId!);
+              if (code != null && mounted) {
+                final planData = {
+                  'name': _activePlanName,
+                  'routeDistanceKm': _routeDistKm,
+                  'routeDurationMin': _routeDurMin,
+                  'waypoints': _routeWaypoints,
+                  'isRoundTrip': _isRoundTrip,
+                };
+                final text = TripPlanService.getShareText(planData, code);
+                await SharePlus.instance.share(ShareParams(text: text));
+              }
+            },
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// Build colored markers for logged activity stops
+  Future<void> _buildStopMarkers() async {
+    final markers = <Marker>{};
+    for (int i = 0; i < _tripStops.length; i++) {
+      final stop = _tripStops[i];
+      final activity = stop['activity'] as String? ?? 'other';
+      final emoji = TripPlanService.activityTypes[activity]?['emoji'] ?? '📍';
+      final name = stop['name'] as String? ?? 'Stop';
+      final lat = (stop['lat'] as num?)?.toDouble() ?? 0;
+      final lng = (stop['lng'] as num?)?.toDouble() ?? 0;
+      if (lat == 0 && lng == 0) continue;
+
+      // Determine stop color by activity
+      Color stopColor;
+      switch (activity) {
+        case 'fuel': stopColor = const Color(0xFFFF9800); break;
+        case 'food': stopColor = const Color(0xFFFF5722); break;
+        case 'tea': stopColor = const Color(0xFF795548); break;
+        case 'hotel': stopColor = const Color(0xFF3F51B5); break;
+        case 'viewpoint': stopColor = const Color(0xFF4CAF50); break;
+        case 'suggestion': stopColor = const Color(0xFFFFEB3B); break;
+        case 'rest': stopColor = const Color(0xFF607D8B); break;
+        default: stopColor = const Color(0xFF9E9E9E);
+      }
+
+      final icon = await _createEmojiMarker(emoji, stopColor);
+      markers.add(Marker(
+        markerId: MarkerId('trip_stop_$i'),
+        position: LatLng(lat, lng),
+        icon: icon,
+        infoWindow: InfoWindow(title: '$emoji $name', snippet: stop['notes'] as String? ?? ''),
+      ));
+    }
+    if (mounted) setState(() => _stopMarkers = markers);
   }
 
   /// Opens the route planner as a draggable bottom sheet
@@ -689,7 +1637,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   }),
                   onRemove: _routeWaypoints.length >= 2 ? () { _removeWaypoint(_routeWaypoints.length - 1); refreshAndRebuild(); } : null,
                 ),
-                // Route info
                 if (_routeDistKm > 0)
                   Padding(padding: const EdgeInsets.only(top: 14), child: Container(
                     padding: const EdgeInsets.all(12),
@@ -712,6 +1659,25 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         Text('Stops', style: GoogleFonts.inter(color: Colors.white70, fontSize: 10)),
                       ]),
                     ]),
+                  )),
+                // Save Plan button
+                if (_routeWaypoints.length >= 2)
+                  Padding(padding: const EdgeInsets.only(top: 12), child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BFA5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: Icon(_activePlanId != null ? Icons.update : Icons.save_rounded, color: Colors.white, size: 20),
+                      label: Text(_activePlanId != null ? 'Update Plan' : 'Save Plan',
+                          style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _savePlanDialog();
+                      },
+                    ),
                   )),
               ]),
             ),
@@ -1108,19 +2074,34 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     // POI markers
     markers.addAll(_poiMarkers);
 
+    // Activity stop markers (from live trip)
+    markers.addAll(_stopMarkers);
+
     return markers;
   }
 
   Set<Polyline> _buildPolylines() {
-    if (_routePolyline.isEmpty) return {};
-    return {
-      Polyline(
+    final polylines = <Polyline>{};
+    // Planned route polyline
+    if (_routePolyline.isNotEmpty) {
+      polylines.add(Polyline(
         polylineId: const PolylineId('route'),
         points: _routePolyline,
         width: 5,
         color: const Color(0xFF1A73E8),
-      ),
-    };
+      ));
+    }
+    // Live tracking trail
+    if (_trackPoints.length >= 2) {
+      polylines.add(Polyline(
+        polylineId: const PolylineId('tracking'),
+        points: _trackPoints,
+        width: 5,
+        color: const Color(0xFFE53935),
+        patterns: const [PatternItem.dot, PatternItem.gap(8)],
+      ));
+    }
+    return polylines;
   }
 
   Set<Circle> _buildCircles() {
@@ -1335,8 +2316,94 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             bottom: 24,
             left: 16,
             right: 16,
-            child: Row(
-              children: [
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Active trip banner
+              if (_activePlanId != null && _activePlanStatus == 'active')
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161B22).withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00BFA5).withOpacity(0.4)),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 8, height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00BFA5),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      '🚗 ${_activePlanName ?? "Trip"} · ${_tripStops.length} stops',
+                      style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                    )),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _showAddStopSheet,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6D00),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text('+ Stop', style: GoogleFonts.inter(
+                            color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: _completeTripFlow,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text('End', style: GoogleFonts.inter(
+                            color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ]),
+                ),
+              Row(
+                children: [
+                // ── START / STOP tracking button ──
+                GestureDetector(
+                  onTap: _isLiveTracking ? _stopLiveTracking : _startLiveTracking,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: _isLiveTracking
+                          ? const LinearGradient(colors: [Color(0xFFE53935), Color(0xFFFF5252)])
+                          : const LinearGradient(colors: [Color(0xFF00BFA5), Color(0xFF009688)]),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isLiveTracking ? const Color(0xFFE53935) : const Color(0xFF00BFA5)).withOpacity(0.4),
+                          blurRadius: 12, offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(
+                        _isLiveTracking ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white, size: 20,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _isLiveTracking ? 'Stop · $_trackElapsed' : 'Start',
+                        style: GoogleFonts.inter(
+                          color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 // Follow me button
                 _mapButton(
                   icon: _followMe ? Icons.my_location_rounded : Icons.location_searching_rounded,
@@ -1424,6 +2491,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 ),
               ],
             ),
+            ]),
           ),
 
 
@@ -1468,6 +2536,80 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 ]),
               ),
             ),
+          ),
+
+          // ── TRIP CONTROL BUTTONS (top left, below team bar) ──
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 60,
+            left: 16,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Load Trip button
+              GestureDetector(
+                onTap: _showLoadTripSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161B22).withOpacity(0.92),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.folder_open_rounded, color: Color(0xFF1A73E8), size: 18),
+                    const SizedBox(width: 6),
+                    Text('Load Trip', style: GoogleFonts.inter(
+                        color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+              // Start Trip / Share buttons (when a plan is loaded)
+              if (_activePlanId != null) ...[
+                const SizedBox(height: 8),
+                if (_activePlanStatus == 'planned')
+                  GestureDetector(
+                    onTap: _startTripFlow,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF00BFA5), Color(0xFF009688)]),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFF00BFA5).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+                        const SizedBox(width: 6),
+                        Text('Start Trip', style: GoogleFonts.inter(
+                            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ]),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _showSharePlanDialog,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF161B22).withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.12)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.share_rounded, color: Color(0xFF25D366), size: 18),
+                      const SizedBox(width: 6),
+                      Text('Share', style: GoogleFonts.inter(
+                          color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+              ],
+            ]),
           ),
 
           // ── LOADING NEARBY INDICATOR ──

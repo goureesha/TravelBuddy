@@ -17,12 +17,9 @@ import 'trip_log_screen.dart';
 import 'settings_screen.dart';
 import 'packing_list_screen.dart';
 import 'trip_planner_screen.dart';
-import 'trip_cost_screen.dart';
+import 'expenses_screen.dart';
 import 'document_wallet_screen.dart';
-import 'group_expense_screen.dart';
-import 'route_optimizer_screen.dart';
 import 'trip_sharing_screen.dart';
-import 'expense_analytics_screen.dart';
 import 'travel_badges_screen.dart';
 
 import 'travel_journal_screen.dart';
@@ -181,17 +178,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   // ── PLAN ──
                   _sectionTile('🗺️', 'Plan', const Color(0xFF1A73E8), [
                     _drawerItem(Icons.map_rounded, 'Trip Planner', const Color(0xFF1A73E8), () => const TripPlannerScreen()),
-                    _drawerItem(Icons.alt_route_rounded, 'Route Plan', const Color(0xFF66BB6A), () => const RouteOptimizerScreen()),
                     _drawerItem(Icons.travel_explore_rounded, 'Templates', const Color(0xFF5C6BC0), () => const TripTemplatesScreen()),
                     _drawerItem(Icons.timeline_rounded, 'Trip Log', const Color(0xFF7C4DFF), () => const TripLogScreen()),
                     _drawerItem(Icons.leaderboard_rounded, 'Trip Stats', const Color(0xFF7C4DFF), () => const TripStatsScreen()),
                   ]),
 
-                  // ── COSTS ──
-                  _sectionTile('💰', 'Costs & Budget', const Color(0xFFFF6D00), [
-                    _drawerItem(Icons.receipt_long_rounded, 'Trip Costs', const Color(0xFFEC407A), () => const TripCostScreen()),
-                    _drawerItem(Icons.group_work_rounded, 'Split Costs', const Color(0xFF5C6BC0), () => const GroupExpenseScreen()),
-                    _drawerItem(Icons.bar_chart_rounded, 'Analytics', const Color(0xFF29B6F6), () => const ExpenseAnalyticsScreen()),
+                  // ── EXPENSES ──
+                  _sectionTile('💰', 'Money', const Color(0xFFFF6D00), [
+                    _drawerItem(Icons.account_balance_wallet_rounded, 'Expenses', const Color(0xFFEC407A), () => const ExpensesScreen()),
                   ]),
 
                   // ── PACK & PREP ──
