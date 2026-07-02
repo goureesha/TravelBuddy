@@ -7,6 +7,12 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build-android:
@@ -38,8 +44,11 @@ jobs:
           path: build/app/outputs/flutter-apk/app-*-release.apk
 
   build-web:
-    name: Build Flutter Web
+    name: Build & Deploy Flutter Web
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,15 +63,14 @@ jobs:
       - name: Build Web
         run: flutter build web --release --base-href "/TravelBuddy/"
 
-      - name: Upload Web Build
-        uses: actions/upload-artifact@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: travel-buddy-web
           path: build/web
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        if: github.ref == 'refs/heads/main'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
+        id: deployment
+        uses: actions/deploy-pages@v4
