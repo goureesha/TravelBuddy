@@ -1367,7 +1367,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                       color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                   onPressed: () async {
                     final stopName = nameCtrl.text.trim().isEmpty
-                        ? TripPlanService.activityTypes[selectedActivity]?['label'] ?? 'Stop'
+                        ? (TripPlanService.activityTypes[selectedActivity]?['label'] ?? 'Stop')
                         : nameCtrl.text.trim();
                     final lat = _myLocation?.latitude ?? 0;
                     final lng = _myLocation?.longitude ?? 0;
@@ -2098,7 +2098,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         points: _trackPoints,
         width: 5,
         color: const Color(0xFFE53935),
-        patterns: const [PatternItem.dot, PatternItem.gap(8)],
+        patterns: [PatternItem.dot, PatternItem.gap(8)],
       ));
     }
     return polylines;

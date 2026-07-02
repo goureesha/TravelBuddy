@@ -1,0 +1,557 @@
+{
+  "D:\\TravelBuddy\\android\\app\\build.gradle": {
+    "mtime": 1777574915.1490662,
+    "ast_hash": "8b291495e83b3accaad059cd9277e2c4",
+    "semantic_hash": "8b291495e83b3accaad059cd9277e2c4"
+  },
+  "D:\\TravelBuddy\\android\\app\\google-services.json": {
+    "mtime": 1777558738.5531125,
+    "ast_hash": "7db84a702d0433b2e73125ab41e0cd13",
+    "semantic_hash": "7db84a702d0433b2e73125ab41e0cd13"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\java\\io\\flutter\\plugins\\GeneratedPluginRegistrant.java": {
+    "mtime": 1777551019.6745856,
+    "ast_hash": "9a2d611436adea16358374a5eb1f3db7",
+    "semantic_hash": "9a2d611436adea16358374a5eb1f3db7"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\kotlin\\com\\travelbuddy\\travel_buddy\\MainActivity.kt": {
+    "mtime": 1777523997.2415917,
+    "ast_hash": "efb6755d27ff16d80f31f8c4b834e62e",
+    "semantic_hash": "efb6755d27ff16d80f31f8c4b834e62e"
+  },
+  "D:\\TravelBuddy\\android\\build.gradle": {
+    "mtime": 1777523997.2589133,
+    "ast_hash": "df058a90e5cd11493c2ea557f598e5a4",
+    "semantic_hash": "df058a90e5cd11493c2ea557f598e5a4"
+  },
+  "D:\\TravelBuddy\\android\\gradlew": {
+    "mtime": 1777523998.2978916,
+    "ast_hash": "7f1cd7eb3f75a1dc85cd37753972a6e2",
+    "semantic_hash": "7f1cd7eb3f75a1dc85cd37753972a6e2"
+  },
+  "D:\\TravelBuddy\\android\\settings.gradle": {
+    "mtime": 1777553114.79862,
+    "ast_hash": "1df16163541d78fba6b013275a4a10e2",
+    "semantic_hash": "1df16163541d78fba6b013275a4a10e2"
+  },
+  "D:\\TravelBuddy\\check_syntax.py": {
+    "mtime": 1777724227.8058155,
+    "ast_hash": "2d6a1956b9e441c454e37c82d923ed65",
+    "semantic_hash": "2d6a1956b9e441c454e37c82d923ed65"
+  },
+  "D:\\TravelBuddy\\ios\\Flutter\\flutter_export_environment.sh": {
+    "mtime": 1777524003.0050735,
+    "ast_hash": "9c2efff81318fcedc68a0929ed06cd9a",
+    "semantic_hash": "9c2efff81318fcedc68a0929ed06cd9a"
+  },
+  "D:\\TravelBuddy\\ios\\RunnerTests\\RunnerTests.swift": {
+    "mtime": 1777523997.6810758,
+    "ast_hash": "24e5d095048eb86c30423f4e04b6e57b",
+    "semantic_hash": "24e5d095048eb86c30423f4e04b6e57b"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\AppDelegate.swift": {
+    "mtime": 1738730074.0,
+    "ast_hash": "e277c49e98c9f80e9e71c0524a5cb60f",
+    "semantic_hash": "e277c49e98c9f80e9e71c0524a5cb60f"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Contents.json": {
+    "mtime": 1738730074.0,
+    "ast_hash": "31a08e429403e265cabfb31b3d65f049",
+    "semantic_hash": "31a08e429403e265cabfb31b3d65f049"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\LaunchImage.imageset\\Contents.json": {
+    "mtime": 1738730074.0,
+    "ast_hash": "b9e927ac17345f2d5f052fe68a3487f9",
+    "semantic_hash": "b9e927ac17345f2d5f052fe68a3487f9"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\GeneratedPluginRegistrant.h": {
+    "mtime": 1777551019.6815498,
+    "ast_hash": "decb9041b5e91a07e66f4664e5dac408",
+    "semantic_hash": "decb9041b5e91a07e66f4664e5dac408"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\GeneratedPluginRegistrant.m": {
+    "mtime": 1777551019.685056,
+    "ast_hash": "b0977b4959f357e5a6b26438be5b0b80",
+    "semantic_hash": "b0977b4959f357e5a6b26438be5b0b80"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Runner-Bridging-Header.h": {
+    "mtime": 1738730074.0,
+    "ast_hash": "7ad7b5cea096132de13ba526b2b9efbe",
+    "semantic_hash": "7ad7b5cea096132de13ba526b2b9efbe"
+  },
+  "D:\\TravelBuddy\\lib\\firebase_options.dart": {
+    "mtime": 1777551979.8697674,
+    "ast_hash": "93a36dee9393eec5670473bba3c1e635",
+    "semantic_hash": "93a36dee9393eec5670473bba3c1e635"
+  },
+  "D:\\TravelBuddy\\lib\\main.dart": {
+    "mtime": 1777561318.7717266,
+    "ast_hash": "8ad3abc706e5eec3dde4f4eaa1b1cca2",
+    "semantic_hash": "8ad3abc706e5eec3dde4f4eaa1b1cca2"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\auth_screen.dart": {
+    "mtime": 1777568945.1023784,
+    "ast_hash": "2e03300eada7009080350e0535a3d131",
+    "semantic_hash": "2e03300eada7009080350e0535a3d131"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\blog_screen.dart": {
+    "mtime": 1777704314.40737,
+    "ast_hash": "de9497ed7ca3d975faec9b6d6849c7a7",
+    "semantic_hash": "de9497ed7ca3d975faec9b6d6849c7a7"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\budget_planner_screen.dart": {
+    "mtime": 1777808683.2804806,
+    "ast_hash": "dd7d9ff0dfe7d6d0ad73ea82c46ef590",
+    "semantic_hash": "dd7d9ff0dfe7d6d0ad73ea82c46ef590"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\checklist_screen.dart": {
+    "mtime": 1777704187.8391223,
+    "ast_hash": "b55b3ff8249e464f3024d3ebe8820625",
+    "semantic_hash": "b55b3ff8249e464f3024d3ebe8820625"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\community_feed_screen.dart": {
+    "mtime": 1777903404.7969594,
+    "ast_hash": "6ab02a9efbde9cb1f518f3c9030632ac",
+    "semantic_hash": "6ab02a9efbde9cb1f518f3c9030632ac"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\create_trip_post_screen.dart": {
+    "mtime": 1777903528.4509776,
+    "ast_hash": "d51a85211f12fb660a585fc37f0b2d78",
+    "semantic_hash": "d51a85211f12fb660a585fc37f0b2d78"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\currency_converter_screen.dart": {
+    "mtime": 1777903512.4368987,
+    "ast_hash": "e070b94cfc13507d13796c1dc9b0882d",
+    "semantic_hash": "e070b94cfc13507d13796c1dc9b0882d"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\discover_places_screen.dart": {
+    "mtime": 1777807184.9205325,
+    "ast_hash": "b1a91ab6cb1d2366d5fa6d9d7f6a4ac7",
+    "semantic_hash": "b1a91ab6cb1d2366d5fa6d9d7f6a4ac7"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\document_wallet_screen.dart": {
+    "mtime": 1777788718.3325741,
+    "ast_hash": "4462392b727f0c568d821cbb7b814c3e",
+    "semantic_hash": "4462392b727f0c568d821cbb7b814c3e"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\emergency_info_screen.dart": {
+    "mtime": 1777808874.9119818,
+    "ast_hash": "f8edc5019211642417fb234ee325b8a7",
+    "semantic_hash": "f8edc5019211642417fb234ee325b8a7"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\expense_analytics_screen.dart": {
+    "mtime": 1777805205.5974605,
+    "ast_hash": "6332b04f1e6ada33456e5bc4a56e7596",
+    "semantic_hash": "6332b04f1e6ada33456e5bc4a56e7596"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\expense_screen.dart": {
+    "mtime": 1777704171.3204267,
+    "ast_hash": "e86d7fb5eed3ab52091b757c46c614e2",
+    "semantic_hash": "e86d7fb5eed3ab52091b757c46c614e2"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\fuel_price_screen.dart": {
+    "mtime": 1777810674.3385186,
+    "ast_hash": "216ed85e7de7dad9f974554d1134e7a1",
+    "semantic_hash": "216ed85e7de7dad9f974554d1134e7a1"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\fuel_track_screen.dart": {
+    "mtime": 1777704897.334138,
+    "ast_hash": "8fa7266945053a7ae4fd6a661e31c011",
+    "semantic_hash": "8fa7266945053a7ae4fd6a661e31c011"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\group_expense_screen.dart": {
+    "mtime": 1777791239.8723462,
+    "ast_hash": "717cb8dc4d049c547d0cc8331e6c87ce",
+    "semantic_hash": "717cb8dc4d049c547d0cc8331e6c87ce"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\home_screen.dart": {
+    "mtime": 1777988971.315789,
+    "ast_hash": "ab4013d70fc1cc5b384a61c1fc9e929f",
+    "semantic_hash": "ab4013d70fc1cc5b384a61c1fc9e929f"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\live_map_screen.dart": {
+    "mtime": 1777944726.0865734,
+    "ast_hash": "c8c36b91b494b4948b2b35523250d564",
+    "semantic_hash": "c8c36b91b494b4948b2b35523250d564"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\maintenance_screen.dart": {
+    "mtime": 1777812263.0902276,
+    "ast_hash": "523f8c60401f2b011f8834f5674d12d0",
+    "semantic_hash": "523f8c60401f2b011f8834f5674d12d0"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\mileage_calculator_screen.dart": {
+    "mtime": 1777903465.918851,
+    "ast_hash": "8bb43a2da96ce96247da1711a07ef953",
+    "semantic_hash": "8bb43a2da96ce96247da1711a07ef953"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\packing_list_screen.dart": {
+    "mtime": 1777782924.5460699,
+    "ast_hash": "50b5fd85ec5bf9a906d8daeae942c0c8",
+    "semantic_hash": "50b5fd85ec5bf9a906d8daeae942c0c8"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\route_optimizer_screen.dart": {
+    "mtime": 1777792312.634009,
+    "ast_hash": "ae3781a587e044fa53ae552af7e7b661",
+    "semantic_hash": "ae3781a587e044fa53ae552af7e7b661"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\settings_screen.dart": {
+    "mtime": 1777728047.1192324,
+    "ast_hash": "3f947edb3884db6f1982f2de8f865cc9",
+    "semantic_hash": "3f947edb3884db6f1982f2de8f865cc9"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\smart_packing_screen.dart": {
+    "mtime": 1777806917.0951731,
+    "ast_hash": "f3c5fa304a47c9228dd4af815acf2ab1",
+    "semantic_hash": "f3c5fa304a47c9228dd4af815acf2ab1"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\sos_screen.dart": {
+    "mtime": 1777704265.5135238,
+    "ast_hash": "bc081baaf091bb59a87b6a1549cb71da",
+    "semantic_hash": "bc081baaf091bb59a87b6a1549cb71da"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\speed_screen.dart": {
+    "mtime": 1777704214.5335243,
+    "ast_hash": "fbd3008b33e631bc6ddcb7e2282b2bc0",
+    "semantic_hash": "fbd3008b33e631bc6ddcb7e2282b2bc0"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\splash_screen.dart": {
+    "mtime": 1777544961.8672233,
+    "ast_hash": "86588a0d1301033936bf637201fa7ce8",
+    "semantic_hash": "86588a0d1301033936bf637201fa7ce8"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\team_chat_screen.dart": {
+    "mtime": 1777721471.5938213,
+    "ast_hash": "eeca861bba003dce670f8679d83c28b7",
+    "semantic_hash": "eeca861bba003dce670f8679d83c28b7"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\team_detail_screen.dart": {
+    "mtime": 1777545020.908775,
+    "ast_hash": "6e1d2c57a7c72cc548d877d2fea0eab1",
+    "semantic_hash": "6e1d2c57a7c72cc548d877d2fea0eab1"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\teams_screen.dart": {
+    "mtime": 1777544961.8699439,
+    "ast_hash": "78657734364844820885349b94e2a0b3",
+    "semantic_hash": "78657734364844820885349b94e2a0b3"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\toll_calculator_screen.dart": {
+    "mtime": 1777903425.5385544,
+    "ast_hash": "e403c6f6c86a0c798e07235ba5301c0a",
+    "semantic_hash": "e403c6f6c86a0c798e07235ba5301c0a"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\travel_alerts_screen.dart": {
+    "mtime": 1777807964.552173,
+    "ast_hash": "b41f8796f4f29e6ebf42a54a8afc6ac3",
+    "semantic_hash": "b41f8796f4f29e6ebf42a54a8afc6ac3"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\travel_badges_screen.dart": {
+    "mtime": 1777805316.217657,
+    "ast_hash": "dbafb41c5f0ac4e8c28c32794babe2ab",
+    "semantic_hash": "dbafb41c5f0ac4e8c28c32794babe2ab"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\travel_journal_screen.dart": {
+    "mtime": 1777807257.678803,
+    "ast_hash": "322b9a52c143d1ed7cfc48a5e16dc170",
+    "semantic_hash": "322b9a52c143d1ed7cfc48a5e16dc170"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_compare_screen.dart": {
+    "mtime": 1777812899.7169638,
+    "ast_hash": "e08c8837f7b9acdb89cb42412287d497",
+    "semantic_hash": "e08c8837f7b9acdb89cb42412287d497"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_cost_screen.dart": {
+    "mtime": 1777785496.7102041,
+    "ast_hash": "6682034cd7609750f695159d37906115",
+    "semantic_hash": "6682034cd7609750f695159d37906115"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_log_screen.dart": {
+    "mtime": 1777726230.4690382,
+    "ast_hash": "2534f62b41c6ab4105d78c2bd6722af6",
+    "semantic_hash": "2534f62b41c6ab4105d78c2bd6722af6"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_planner_screen.dart": {
+    "mtime": 1777783831.3839583,
+    "ast_hash": "23702b09b0f461a03737fbb693c5eb3e",
+    "semantic_hash": "23702b09b0f461a03737fbb693c5eb3e"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_post_detail_screen.dart": {
+    "mtime": 1777903416.3065722,
+    "ast_hash": "9818e6670abf991a4a9158e8fcf332eb",
+    "semantic_hash": "9818e6670abf991a4a9158e8fcf332eb"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_sharing_screen.dart": {
+    "mtime": 1777803122.716823,
+    "ast_hash": "5d2a5b270528a98b4bf35c05f681c817",
+    "semantic_hash": "5d2a5b270528a98b4bf35c05f681c817"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_stats_screen.dart": {
+    "mtime": 1777809641.6303906,
+    "ast_hash": "81339b6e8dfd90b0ee02ec44501208e7",
+    "semantic_hash": "81339b6e8dfd90b0ee02ec44501208e7"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\trip_templates_screen.dart": {
+    "mtime": 1777811471.6538384,
+    "ast_hash": "e5930a117ad5266d98d998c25c24c60d",
+    "semantic_hash": "e5930a117ad5266d98d998c25c24c60d"
+  },
+  "D:\\TravelBuddy\\lib\\screens\\weather_screen.dart": {
+    "mtime": 1777810247.1341207,
+    "ast_hash": "4587b4773d4c924314f13f4b436666bc",
+    "semantic_hash": "4587b4773d4c924314f13f4b436666bc"
+  },
+  "D:\\TravelBuddy\\lib\\services\\blog_service.dart": {
+    "mtime": 1777617376.9127169,
+    "ast_hash": "fd770abc85718c184a53ec6d043ab909",
+    "semantic_hash": "fd770abc85718c184a53ec6d043ab909"
+  },
+  "D:\\TravelBuddy\\lib\\services\\chat_service.dart": {
+    "mtime": 1777721471.5958552,
+    "ast_hash": "dd9aaeb8f02837a89a2ee1daad6759b1",
+    "semantic_hash": "dd9aaeb8f02837a89a2ee1daad6759b1"
+  },
+  "D:\\TravelBuddy\\lib\\services\\emergency_contact_service.dart": {
+    "mtime": 1777727948.7364326,
+    "ast_hash": "c014c5cfa1a63070bb867e55e6927b39",
+    "semantic_hash": "c014c5cfa1a63070bb867e55e6927b39"
+  },
+  "D:\\TravelBuddy\\lib\\services\\eta_service.dart": {
+    "mtime": 1777721471.59785,
+    "ast_hash": "baae1cb8281ed344c54ae17c1d5ffd40",
+    "semantic_hash": "baae1cb8281ed344c54ae17c1d5ffd40"
+  },
+  "D:\\TravelBuddy\\lib\\services\\expense_service.dart": {
+    "mtime": 1777575824.890619,
+    "ast_hash": "bddd45aab126c0616a929654982b6399",
+    "semantic_hash": "bddd45aab126c0616a929654982b6399"
+  },
+  "D:\\TravelBuddy\\lib\\services\\fuel_service.dart": {
+    "mtime": 1777704826.434687,
+    "ast_hash": "3429c32ae0e0a669f13d5026bf26aaf2",
+    "semantic_hash": "3429c32ae0e0a669f13d5026bf26aaf2"
+  },
+  "D:\\TravelBuddy\\lib\\services\\location_service.dart": {
+    "mtime": 1777556346.8129742,
+    "ast_hash": "035b3618f0039b226ab949e9ec33aee7",
+    "semantic_hash": "035b3618f0039b226ab949e9ec33aee7"
+  },
+  "D:\\TravelBuddy\\lib\\services\\nearby_service.dart": {
+    "mtime": 1777911502.7637813,
+    "ast_hash": "baf2f5780bff9ac21e1bc9203c713a59",
+    "semantic_hash": "baf2f5780bff9ac21e1bc9203c713a59"
+  },
+  "D:\\TravelBuddy\\lib\\services\\poi_service.dart": {
+    "mtime": 1777564011.628988,
+    "ast_hash": "b14f7e679f9a82aedd1b00a3a300b8e1",
+    "semantic_hash": "b14f7e679f9a82aedd1b00a3a300b8e1"
+  },
+  "D:\\TravelBuddy\\lib\\services\\route_service.dart": {
+    "mtime": 1777577567.1088114,
+    "ast_hash": "fc03a535df964e317dae07aee452e9e9",
+    "semantic_hash": "fc03a535df964e317dae07aee452e9e9"
+  },
+  "D:\\TravelBuddy\\lib\\services\\team_service.dart": {
+    "mtime": 1777562734.9410324,
+    "ast_hash": "512c184c761707cb85fecbe1d59557bd",
+    "semantic_hash": "512c184c761707cb85fecbe1d59557bd"
+  },
+  "D:\\TravelBuddy\\lib\\services\\trip_log_service.dart": {
+    "mtime": 1777725575.7108152,
+    "ast_hash": "5f7092a458fa6de0631124290d63613d",
+    "semantic_hash": "5f7092a458fa6de0631124290d63613d"
+  },
+  "D:\\TravelBuddy\\lib\\services\\trip_service.dart": {
+    "mtime": 1777575805.863852,
+    "ast_hash": "2a143a825c1a7094ecfa322b5c68db56",
+    "semantic_hash": "2a143a825c1a7094ecfa322b5c68db56"
+  },
+  "D:\\TravelBuddy\\lib\\services\\weather_service.dart": {
+    "mtime": 1777788274.620633,
+    "ast_hash": "898426798560feddf73ffefaf7e5d0c3",
+    "semantic_hash": "898426798560feddf73ffefaf7e5d0c3"
+  },
+  "D:\\TravelBuddy\\lib\\widgets\\notification_bell.dart": {
+    "mtime": 1777704049.1505754,
+    "ast_hash": "24e84ca3f50e03b0fa10cfddbabb8b98",
+    "semantic_hash": "24e84ca3f50e03b0fa10cfddbabb8b98"
+  },
+  "D:\\TravelBuddy\\test\\widget_test.dart": {
+    "mtime": 1777544645.5949178,
+    "ast_hash": "81919558335358e34306b895fb5bcaaa",
+    "semantic_hash": "81919558335358e34306b895fb5bcaaa"
+  },
+  "D:\\TravelBuddy\\web\\manifest.json": {
+    "mtime": 1777523998.2447684,
+    "ast_hash": "6be1a397433db5b8094d63312351b10f",
+    "semantic_hash": "6be1a397433db5b8094d63312351b10f"
+  },
+  "D:\\TravelBuddy\\.github\\workflows\\build.yml": {
+    "mtime": 1777724929.7350533,
+    "ast_hash": "ed6138bfc59b548bc284a91ec454b555",
+    "semantic_hash": "ed6138bfc59b548bc284a91ec454b555"
+  },
+  "D:\\TravelBuddy\\README.md": {
+    "mtime": 1777724937.8449602,
+    "ast_hash": "3bb48846fc80582bb5707c74ddb20f34",
+    "semantic_hash": "3bb48846fc80582bb5707c74ddb20f34"
+  },
+  "D:\\TravelBuddy\\analysis_options.yaml": {
+    "mtime": 1777523997.129603,
+    "ast_hash": "9e65f4b9beebb674c0dc252f70a5c177",
+    "semantic_hash": "9e65f4b9beebb674c0dc252f70a5c177"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\LaunchImage.imageset\\README.md": {
+    "mtime": 1738730074.0,
+    "ast_hash": "f7ee1b402881509d197f34963e569927",
+    "semantic_hash": "f7ee1b402881509d197f34963e569927"
+  },
+  "D:\\TravelBuddy\\pubspec.yaml": {
+    "mtime": 1777727936.7071764,
+    "ast_hash": "e77b0d753feae31cede5a19200bfbab5",
+    "semantic_hash": "e77b0d753feae31cede5a19200bfbab5"
+  },
+  "D:\\TravelBuddy\\web\\index.html": {
+    "mtime": 1777641265.5929248,
+    "ast_hash": "1a3488cc3bb9d6fde8f5f0cc5c0c0f1a",
+    "semantic_hash": "1a3488cc3bb9d6fde8f5f0cc5c0c0f1a"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\res\\mipmap-hdpi\\ic_launcher.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "13e9c72ec37fac220397aa819fa1ef2d",
+    "semantic_hash": "13e9c72ec37fac220397aa819fa1ef2d"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\res\\mipmap-mdpi\\ic_launcher.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "6270344430679711b81476e29878caa7",
+    "semantic_hash": "6270344430679711b81476e29878caa7"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\res\\mipmap-xhdpi\\ic_launcher.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "a0a8db5985280b3679d99a820ae2db79",
+    "semantic_hash": "a0a8db5985280b3679d99a820ae2db79"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\res\\mipmap-xxhdpi\\ic_launcher.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "afe1b655b9f32da22f9a4301bb8e6ba8",
+    "semantic_hash": "afe1b655b9f32da22f9a4301bb8e6ba8"
+  },
+  "D:\\TravelBuddy\\android\\app\\src\\main\\res\\mipmap-xxxhdpi\\ic_launcher.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "57838d52c318faff743130c3fcfae0c6",
+    "semantic_hash": "57838d52c318faff743130c3fcfae0c6"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-1024x1024@1x.png": {
+    "mtime": 1773485290.0666604,
+    "ast_hash": "c785f8932297af4acd5f5ccb7630f01c",
+    "semantic_hash": "c785f8932297af4acd5f5ccb7630f01c"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-20x20@1x.png": {
+    "mtime": 1773485290.0546923,
+    "ast_hash": "a2f8558fb1d42514111fbbb19fb67314",
+    "semantic_hash": "a2f8558fb1d42514111fbbb19fb67314"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-20x20@2x.png": {
+    "mtime": 1773485290.0507069,
+    "ast_hash": "2247a840b6ee72b8a069208af170e5b1",
+    "semantic_hash": "2247a840b6ee72b8a069208af170e5b1"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-20x20@3x.png": {
+    "mtime": 1773485290.0746386,
+    "ast_hash": "1b3b1538136316263c7092951e923e9d",
+    "semantic_hash": "1b3b1538136316263c7092951e923e9d"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-29x29@1x.png": {
+    "mtime": 1773485290.045719,
+    "ast_hash": "be8887071dd7ec39cb754d236aa9584f",
+    "semantic_hash": "be8887071dd7ec39cb754d236aa9584f"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-29x29@2x.png": {
+    "mtime": 1773485290.0586822,
+    "ast_hash": "043119ef4faa026ff82bd03f241e5338",
+    "semantic_hash": "043119ef4faa026ff82bd03f241e5338"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-29x29@3x.png": {
+    "mtime": 1773485290.0526967,
+    "ast_hash": "2b1452c4c1bda6177b4fbbb832df217f",
+    "semantic_hash": "2b1452c4c1bda6177b4fbbb832df217f"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-40x40@1x.png": {
+    "mtime": 1773485290.0437207,
+    "ast_hash": "2247a840b6ee72b8a069208af170e5b1",
+    "semantic_hash": "2247a840b6ee72b8a069208af170e5b1"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-40x40@2x.png": {
+    "mtime": 1773485290.0606759,
+    "ast_hash": "8245359312aea1b0d2412f79a07b0ca5",
+    "semantic_hash": "8245359312aea1b0d2412f79a07b0ca5"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-40x40@3x.png": {
+    "mtime": 1773485290.071647,
+    "ast_hash": "5b3c0902200ce596e9848f22e1f0fe0e",
+    "semantic_hash": "5b3c0902200ce596e9848f22e1f0fe0e"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-60x60@2x.png": {
+    "mtime": 1773485290.0774584,
+    "ast_hash": "5b3c0902200ce596e9848f22e1f0fe0e",
+    "semantic_hash": "5b3c0902200ce596e9848f22e1f0fe0e"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-60x60@3x.png": {
+    "mtime": 1773485290.0487106,
+    "ast_hash": "e419d22a37bc40ba185aca1acb6d4ac6",
+    "semantic_hash": "e419d22a37bc40ba185aca1acb6d4ac6"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-76x76@1x.png": {
+    "mtime": 1773485290.0686545,
+    "ast_hash": "36c0d7a7132bdde18898ffdfcfcdc4d2",
+    "semantic_hash": "36c0d7a7132bdde18898ffdfcfcdc4d2"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-76x76@2x.png": {
+    "mtime": 1773485290.0566866,
+    "ast_hash": "643842917530acf4c5159ae851b0baf2",
+    "semantic_hash": "643842917530acf4c5159ae851b0baf2"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\AppIcon.appiconset\\Icon-App-83.5x83.5@2x.png": {
+    "mtime": 1773485290.0804589,
+    "ast_hash": "665cb5e3c5729da6d639d26eff47a503",
+    "semantic_hash": "665cb5e3c5729da6d639d26eff47a503"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\LaunchImage.imageset\\LaunchImage.png": {
+    "mtime": 1773485290.0834491,
+    "ast_hash": "978c1bee49d7ad5fc1a4d81099b13e18",
+    "semantic_hash": "978c1bee49d7ad5fc1a4d81099b13e18"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\LaunchImage.imageset\\LaunchImage@2x.png": {
+    "mtime": 1773485290.0884361,
+    "ast_hash": "978c1bee49d7ad5fc1a4d81099b13e18",
+    "semantic_hash": "978c1bee49d7ad5fc1a4d81099b13e18"
+  },
+  "D:\\TravelBuddy\\ios\\Runner\\Assets.xcassets\\LaunchImage.imageset\\LaunchImage@3x.png": {
+    "mtime": 1773485290.0854447,
+    "ast_hash": "978c1bee49d7ad5fc1a4d81099b13e18",
+    "semantic_hash": "978c1bee49d7ad5fc1a4d81099b13e18"
+  },
+  "D:\\TravelBuddy\\web\\favicon.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "5dcef449791fa27946b3d35ad8803796",
+    "semantic_hash": "5dcef449791fa27946b3d35ad8803796"
+  },
+  "D:\\TravelBuddy\\web\\icons\\Icon-192.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "ac9a721a12bbc803b44f645561ecb1e1",
+    "semantic_hash": "ac9a721a12bbc803b44f645561ecb1e1"
+  },
+  "D:\\TravelBuddy\\web\\icons\\Icon-512.png": {
+    "mtime": 1738730074.0,
+    "ast_hash": "96e752610906ba2a93c65f8abe1645f1",
+    "semantic_hash": "96e752610906ba2a93c65f8abe1645f1"
+  },
+  "D:\\TravelBuddy\\web\\icons\\Icon-maskable-192.png": {
+    "mtime": 1773485290.112951,
+    "ast_hash": "c457ef57daa1d16f64b27b786ec2ea3c",
+    "semantic_hash": "c457ef57daa1d16f64b27b786ec2ea3c"
+  },
+  "D:\\TravelBuddy\\web\\icons\\Icon-maskable-512.png": {
+    "mtime": 1773485290.109958,
+    "ast_hash": "301a7604d45b3e739efc881eb04896ea",
+    "semantic_hash": "301a7604d45b3e739efc881eb04896ea"
+  }
+}
