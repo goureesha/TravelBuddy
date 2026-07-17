@@ -2511,7 +2511,10 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     ),
                   ]),
                 ),
-              Row(
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
                 children: [
                 // ── START / STOP tracking button ──
                 GestureDetector(
@@ -2592,7 +2595,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     ));
                   },
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 // Share location toggle
                 GestureDetector(
                   onTap: _toggleSharing,
@@ -2652,7 +2655,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     color: Colors.white.withOpacity(0.54),
                     onTap: _showShareEtaDialog,
                   ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 // Map style button
                 _mapButton(
                   icon: Icons.layers_rounded,
@@ -2660,6 +2663,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   onTap: _showMapStylePicker,
                 ),
               ],
+             ),
             ),
             ]),
           ),
