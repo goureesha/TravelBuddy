@@ -113,12 +113,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void initState() {
     super.initState();
     _initLocation();
-    // If navigated from templates with a pre-loaded plan
-    if (widget.loadPlanId != null && widget.loadPlanWaypoints != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadTemplatePlan();
-      });
-    }
+    // Template plan is loaded in onMapCreated (needs map controller)
   }
 
   void _loadTemplatePlan() {
@@ -2321,7 +2316,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             mapToolbarEnabled: false,
             onMapCreated: (controller) {
               _gMapController = controller;
-              if (_myLocation != null) {
+              if (widget.loadPlanId != null && widget.loadPlanWaypoints != null) {
+                // Load template plan once map is ready
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted) _loadTemplatePlan();
+                });
+              } else if (_myLocation != null) {
                 controller.animateCamera(CameraUpdate.newLatLngZoom(_myLocation!, 15));
               }
             },
