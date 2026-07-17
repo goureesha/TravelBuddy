@@ -46,6 +46,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   String? _activeTeamName;
   bool _isSharing = false;
   bool _followMe = true;
+  bool _is3DView = false;
   LatLng? _myLocation;
   double _accuracy = 0; // meters
 
@@ -2328,12 +2329,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               target: _myLocation ?? const LatLng(12.9716, 77.5946),
               zoom: 14,
             ),
-            mapType: _mapTypes[_mapTypeIndex],
+            mapType: _is3DView ? MapType.terrain : _mapTypes[_mapTypeIndex],
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
-            compassEnabled: false,
+            compassEnabled: _is3DView,
             mapToolbarEnabled: false,
+            buildingsEnabled: _is3DView,
+            tiltGesturesEnabled: true,
+            rotateGesturesEnabled: true,
             onMapCreated: (controller) {
               _gMapController = controller;
               if (widget.loadPlanWaypoints != null && widget.loadPlanWaypoints!.isNotEmpty) {
@@ -2558,6 +2562,34 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         CameraUpdate.newLatLngZoom(_myLocation!, 15),
                       );
                     }
+                  },
+                ),
+                const SizedBox(width: 8),
+                // 3D terrain toggle
+                _mapButton(
+                  icon: _is3DView ? Icons.threed_rotation_rounded : Icons.terrain_rounded,
+                  color: _is3DView ? const Color(0xFF00BFA5) : Colors.white.withOpacity(0.54),
+                  onTap: () {
+                    setState(() => _is3DView = !_is3DView);
+                    if (_gMapController != null) {
+                      final target = _myLocation ?? const LatLng(20.5937, 78.9629);
+                      _gMapController!.animateCamera(
+                        CameraUpdate.newCameraPosition(CameraPosition(
+                          target: target,
+                          zoom: _is3DView ? 16 : 15,
+                          tilt: _is3DView ? 60 : 0,
+                          bearing: _is3DView ? 30 : 0,
+                        )),
+                      );
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(
+                        _is3DView ? '🏔️ 3D Terrain View' : '🗺️ Flat View',
+                        style: GoogleFonts.inter(),
+                      ),
+                      backgroundColor: _is3DView ? const Color(0xFF00BFA5) : const Color(0xFF161B22),
+                      duration: const Duration(seconds: 1),
+                    ));
                   },
                 ),
                 const Spacer(),
