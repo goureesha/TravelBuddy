@@ -11,7 +11,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/location_service.dart';
+import '../services/background_tracking_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/team_service.dart';
 import '../services/poi_service.dart';
 import '../services/route_service.dart';
@@ -710,6 +712,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       return;
     }
 
+    // Start the background foreground service
+    if (!kIsWeb) {
+      await BackgroundTrackingService.startTracking();
+    }
+
     setState(() {
       _isLiveTracking = true;
       _trackPoints = [];
@@ -718,61 +725,120 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _trackStartTime = DateTime.now();
     });
 
-    // Elapsed timer — updates every second
-    _trackTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || _trackStartTime == null) return;
-      final diff = DateTime.now().difference(_trackStartTime!);
-      final h = diff.inHours;
-      final m = diff.inMinutes.remainder(60);
-      final s = diff.inSeconds.remainder(60);
-      setState(() {
-        _trackElapsed = h > 0
-            ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
-            : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-      });
-    });
+    // UI sync timer — polls background service data every 2 seconds
+    _trackTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (!mounted || !_isLiveTracking) return;
 
-    // GPS stream — records each position
-    _trackGpsSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // every 10 metres
-      ),
-    ).listen((pos) {
+      if (kIsWeb) {
+        // Web fallback: just update elapsed time
+        if (_trackStartTime == null) return;
+        final diff = DateTime.now().difference(_trackStartTime!);
+        final h = diff.inHours;
+        final m = diff.inMinutes.remainder(60);
+        final s = diff.inSeconds.remainder(60);
+        setState(() {
+          _trackElapsed = h > 0
+              ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+              : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+        });
+        return;
+      }
+
+      // Sync from background service
+      final snapshot = await BackgroundTrackingService.getSnapshot();
       if (!mounted) return;
-      final newPoint = LatLng(pos.latitude, pos.longitude);
+
+      final newPoints = snapshot.points
+          .map((p) => LatLng(p[0], p[1]))
+          .toList();
 
       setState(() {
-        if (_trackPoints.isNotEmpty) {
-          _trackDistanceKm += _haversine(_trackPoints.last, newPoint);
+        _trackPoints = newPoints;
+        _trackDistanceKm = snapshot.distanceKm;
+        _trackElapsed = snapshot.elapsed;
+        if (newPoints.isNotEmpty) {
+          _myLocation = newPoints.last;
         }
-        _trackPoints.add(newPoint);
-        _myLocation = newPoint;
-        _accuracy = pos.accuracy;
       });
 
-      // Keep camera centered
-      if (_followMe) {
-        _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoint));
+      // Keep camera centered on latest point
+      if (_followMe && newPoints.isNotEmpty) {
+        _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoints.last));
       }
     });
+
+    // Also keep the foreground GPS stream for web fallback
+    if (kIsWeb) {
+      _trackGpsSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen((pos) {
+        if (!mounted) return;
+        final newPoint = LatLng(pos.latitude, pos.longitude);
+        setState(() {
+          if (_trackPoints.isNotEmpty) {
+            _trackDistanceKm += _haversine(_trackPoints.last, newPoint);
+          }
+          _trackPoints.add(newPoint);
+          _myLocation = newPoint;
+          _accuracy = pos.accuracy;
+        });
+        if (_followMe) {
+          _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoint));
+        }
+      });
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('📍 Tracking started — works in background!', style: GoogleFonts.inter()),
+        backgroundColor: const Color(0xFF00BFA5),
+        duration: const Duration(seconds: 2),
+      ));
+    }
   }
 
   Future<void> _stopLiveTracking() async {
+    // Stop background service
+    if (!kIsWeb) {
+      await BackgroundTrackingService.stopTracking();
+    }
+
     _trackGpsSub?.cancel();
     _trackGpsSub = null;
     _trackTimer?.cancel();
     _trackTimer = null;
 
-    final duration = _trackStartTime != null
-        ? DateTime.now().difference(_trackStartTime!)
-        : Duration.zero;
-    final points = List<LatLng>.from(_trackPoints);
-    final distKm = _trackDistanceKm;
-    final elapsed = _trackElapsed;
+    // Get final data from background service
+    List<LatLng> points;
+    double distKm;
+    String elapsed;
+    Duration duration;
+
+    if (!kIsWeb) {
+      final snapshot = await BackgroundTrackingService.getSnapshot();
+      points = snapshot.points.map((p) => LatLng(p[0], p[1])).toList();
+      distKm = snapshot.distanceKm;
+      elapsed = snapshot.elapsed;
+      duration = snapshot.startTime != null
+          ? DateTime.now().difference(snapshot.startTime!)
+          : Duration.zero;
+    } else {
+      points = List<LatLng>.from(_trackPoints);
+      distKm = _trackDistanceKm;
+      elapsed = _trackElapsed;
+      duration = _trackStartTime != null
+          ? DateTime.now().difference(_trackStartTime!)
+          : Duration.zero;
+    }
 
     setState(() {
       _isLiveTracking = false;
+      _trackPoints = points;
+      _trackDistanceKm = distKm;
+      _trackElapsed = elapsed;
     });
 
     if (points.length < 2) {

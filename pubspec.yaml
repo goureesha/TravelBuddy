@@ -39,6 +39,11 @@ dependencies:
   http: any
   url_launcher: any
 
+  # Background tracking
+  flutter_background_service: any
+  flutter_local_notifications: any
+  permission_handler: any
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
