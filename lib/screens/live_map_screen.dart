@@ -124,7 +124,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _activePlanStatus = 'planned';
       _activePlanName = widget.loadPlanName ?? 'Trip';
       _isRoundTrip = false;
-      _routeWaypoints = waypoints.map((w) => {
+      _routeWaypoints = waypoints.map((w) => <String, dynamic>{
         'name': w['name'] ?? 'Point',
         'lat': (w['lat'] as num).toDouble(),
         'lng': (w['lng'] as num).toDouble(),
@@ -140,9 +140,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
 
     // Zoom to first waypoint
-    if (_routeWaypoints.isNotEmpty) {
+    if (_routeWaypoints.isNotEmpty && _gMapController != null) {
       final first = _routeWaypoints.first;
-      _gMapController?.animateCamera(CameraUpdate.newLatLngZoom(
+      _gMapController!.animateCamera(CameraUpdate.newLatLngZoom(
           LatLng(first['lat'], first['lng']), 8));
     }
 
@@ -1058,29 +1058,49 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 final polylineEncoded = _routePolyline.isNotEmpty
                     ? _routePolyline.map((p) => '${p.latitude},${p.longitude}').join(';')
                     : '';
-                final planId = await TripPlanService.savePlan(
-                  teamId: _activePlanTeamId,
-                  planId: _activePlanId,
-                  name: nameCtrl.text.trim(),
-                  waypoints: waypoints,
-                  routeDistanceKm: _routeDistKm,
-                  routeDurationMin: _routeDurMin,
-                  routePolyline: polylineEncoded,
-                  isRoundTrip: roundTrip,
-                );
-                if (mounted) {
-                  setState(() {
-                    _activePlanId = planId;
-                    _activePlanName = nameCtrl.text.trim();
-                    _isRoundTrip = roundTrip;
-                    _activePlanStatus = _activePlanStatus ?? 'planned';
-                  });
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Trip plan "${nameCtrl.text.trim()}" saved! ✓',
-                        style: GoogleFonts.inter()),
-                    backgroundColor: const Color(0xFF00BFA5),
-                  ));
+                try {
+                  final planId = await TripPlanService.savePlan(
+                    teamId: _activePlanTeamId,
+                    planId: _activePlanId,
+                    name: nameCtrl.text.trim(),
+                    waypoints: waypoints,
+                    routeDistanceKm: _routeDistKm,
+                    routeDurationMin: _routeDurMin,
+                    routePolyline: polylineEncoded,
+                    isRoundTrip: roundTrip,
+                  );
+                  if (mounted) {
+                    if (planId != null) {
+                      setState(() {
+                        _activePlanId = planId;
+                        _activePlanName = nameCtrl.text.trim();
+                        _isRoundTrip = roundTrip;
+                        _activePlanStatus = _activePlanStatus ?? 'planned';
+                      });
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Trip plan "${nameCtrl.text.trim()}" saved! ✓',
+                            style: GoogleFonts.inter()),
+                        backgroundColor: const Color(0xFF00BFA5),
+                      ));
+                    } else {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Failed to save — please sign in first',
+                            style: GoogleFonts.inter()),
+                        backgroundColor: Colors.redAccent,
+                      ));
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('Save plan error: $e');
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error saving: $e', style: GoogleFonts.inter()),
+                      backgroundColor: Colors.redAccent,
+                    ));
+                  }
                 }
               },
             ),
@@ -2316,9 +2336,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             mapToolbarEnabled: false,
             onMapCreated: (controller) {
               _gMapController = controller;
-              if (widget.loadPlanId != null && widget.loadPlanWaypoints != null) {
+              if (widget.loadPlanWaypoints != null && widget.loadPlanWaypoints!.isNotEmpty) {
                 // Load template plan once map is ready
-                Future.delayed(const Duration(milliseconds: 300), () {
+                Future.delayed(const Duration(milliseconds: 500), () {
                   if (mounted) _loadTemplatePlan();
                 });
               } else if (_myLocation != null) {

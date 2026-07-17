@@ -211,42 +211,23 @@ class _TripTemplatesScreenState extends State<TripTemplatesScreen> {
       ),
     );
 
-    if (confirm == true) {
-      // Build waypoints list for TripPlanService
-      final waypoints = t.waypoints.asMap().entries.map((e) => {
+    if (confirm == true && mounted) {
+      // Build waypoints list
+      final waypoints = t.waypoints.asMap().entries.map((e) => <String, dynamic>{
         'name': e.value.name,
         'lat': e.value.lat,
         'lng': e.value.lng,
         'order': e.key,
       }).toList();
 
-      // Save the trip plan with waypoints
-      final planId = await TripPlanService.savePlan(
-        teamId: null,
-        name: t.name,
-        waypoints: waypoints,
-        routeDistanceKm: 0,
-        routeDurationMin: 0,
-        routePolyline: '',
-        isRoundTrip: false,
+      // Navigate to map directly with waypoints — no save needed
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => LiveMapScreen(
+          loadPlanWaypoints: waypoints,
+          loadPlanName: t.name,
+        )),
       );
-
-      if (mounted && planId != null) {
-        // Navigate to the map — it will load the plan and auto-fetch the route
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => LiveMapScreen(
-            loadPlanId: planId,
-            loadPlanWaypoints: waypoints,
-            loadPlanName: t.name,
-          )),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t.name} saved! Open the map to view it.',
-              style: GoogleFonts.inter()), backgroundColor: const Color(0xFF00BFA5)),
-        );
-      }
     }
   }
 
