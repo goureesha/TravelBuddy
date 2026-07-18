@@ -930,29 +930,29 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       }
     });
 
-    // Also keep the foreground GPS stream for web fallback
-    if (kIsWeb) {
-      _trackGpsSub = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
-      ).listen((pos) {
-        if (!mounted) return;
-        final newPoint = LatLng(pos.latitude, pos.longitude);
-        setState(() {
-          if (_trackPoints.isNotEmpty) {
-            _trackDistanceKm += _haversine(_trackPoints.last, newPoint);
-          }
-          _trackPoints.add(newPoint);
-          _myLocation = newPoint;
-          _accuracy = pos.accuracy;
-        });
-        if (_followMe) {
-          _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoint));
+    // Always start foreground GPS stream for live trail rendering on the map
+    // (Background service handles when app is minimized, but foreground stream
+    // ensures the colored trail appears immediately)
+    _trackGpsSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((pos) {
+      if (!mounted || !_isLiveTracking) return;
+      final newPoint = LatLng(pos.latitude, pos.longitude);
+      setState(() {
+        if (_trackPoints.isNotEmpty) {
+          _trackDistanceKm += _haversine(_trackPoints.last, newPoint);
         }
+        _trackPoints.add(newPoint);
+        _myLocation = newPoint;
+        _accuracy = pos.accuracy;
       });
-    }
+      if (_followMe) {
+        _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoint));
+      }
+    });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

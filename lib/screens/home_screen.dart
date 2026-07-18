@@ -611,149 +611,130 @@ class _RecentActivity extends StatelessWidget {
       return _emptyCard('Sign in to see activity');
     }
 
+    // Use trip_plans (saved plans) and recent_tracks (completed rides)
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('users').doc(uid).collection('trip_costs')
+          .collection('users').doc(uid).collection('trip_plans')
           .orderBy('createdAt', descending: true).limit(5)
           .snapshots(),
-      builder: (context, costSnap) {
+      builder: (context, planSnap) {
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('users').doc(uid).collection('checkpoints')
-              .orderBy('timestamp', descending: true).limit(5)
+              .collection('users').doc(uid).collection('recent_tracks')
+              .orderBy('startTime', descending: true).limit(5)
               .snapshots(),
-          builder: (context, logSnap) {
-            return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('fuel_logs')
-                  .where('userId', isEqualTo: uid)
-                  .orderBy('timestamp', descending: true).limit(3)
-                  .snapshots(),
-              builder: (context, fuelSnap) {
-                // Show loading shimmer while any stream is waiting
-                final isLoading = costSnap.connectionState == ConnectionState.waiting
-                    && logSnap.connectionState == ConnectionState.waiting
-                    && fuelSnap.connectionState == ConnectionState.waiting;
+          builder: (context, trackSnap) {
+            // Show loading shimmer while streams are waiting
+            final isLoading = planSnap.connectionState == ConnectionState.waiting
+                && trackSnap.connectionState == ConnectionState.waiting;
 
-                if (isLoading) {
-                  return Column(
-                    children: List.generate(3, (_) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+            if (isLoading) {
+              return Column(
+                children: List.generate(3, (_) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: Center(
+                      child: SizedBox(width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 1.5,
+                          color: Colors.white.withOpacity(0.2))),
+                    ),
+                  ),
+                )),
+              );
+            }
+
+            // Handle errors gracefully
+            if (planSnap.hasError && trackSnap.hasError) {
+              return _emptyCard('Unable to load activity.\nCheck your connection.');
+            }
+
+            final List<_ActivityItem> items = [];
+
+            // Saved trip plans
+            for (final doc in planSnap.data?.docs ?? []) {
+              final d = doc.data() as Map<String, dynamic>;
+              final ts = d['createdAt'] as Timestamp?;
+              if (ts != null) {
+                items.add(_ActivityItem(
+                  icon: Icons.map_rounded,
+                  color: const Color(0xFF1A73E8),
+                  title: d['name'] as String? ?? 'Trip Plan',
+                  subtitle: '${(d['routeDistanceKm'] as num?)?.toStringAsFixed(1) ?? '0'} km',
+                  time: ts.toDate(),
+                ));
+              }
+            }
+
+            // Completed tracks
+            for (final doc in trackSnap.data?.docs ?? []) {
+              final d = doc.data() as Map<String, dynamic>;
+              final ts = d['startTime'] as Timestamp?;
+              if (ts != null) {
+                items.add(_ActivityItem(
+                  icon: Icons.route_rounded,
+                  color: const Color(0xFF00BFA5),
+                  title: 'Trip — ${(d['distanceKm'] as num?)?.toStringAsFixed(1) ?? '0'} km',
+                  subtitle: d['duration'] as String? ?? '',
+                  time: ts.toDate(),
+                ));
+              }
+            }
+
+            items.sort((a, b) => b.time.compareTo(a.time));
+            final display = items.take(5).toList();
+
+            if (display.isEmpty) {
+              return _emptyCard('No recent activity yet.\nStart a trip or save a plan!');
+            }
+
+            return Column(
+              children: display.map((item) {
+                final ago = _timeAgo(item.time);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                            color: item.color.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(item.icon, color: item.color, size: 18),
                         ),
-                        child: Center(
-                          child: SizedBox(width: 16, height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 1.5,
-                              color: Colors.white.withOpacity(0.2))),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.title, style: GoogleFonts.inter(
+                                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                              if (item.subtitle.isNotEmpty)
+                                Text(item.subtitle, style: GoogleFonts.inter(
+                                    color: Colors.white30, fontSize: 11)),
+                            ],
+                          ),
                         ),
-                      ),
-                    )),
-                  );
-                }
-
-                final List<_ActivityItem> items = [];
-
-                // Cost entries
-                for (final doc in costSnap.data?.docs ?? []) {
-                  final d = doc.data() as Map<String, dynamic>;
-                  final ts = d['createdAt'] as Timestamp?;
-                  if (ts != null) {
-                    items.add(_ActivityItem(
-                      icon: Icons.receipt_long_rounded,
-                      color: const Color(0xFFEC407A),
-                      title: '${d['category'] ?? 'Expense'} — ₹${(d['amount'] as num?)?.toStringAsFixed(0) ?? '0'}',
-                      subtitle: d['note'] as String? ?? '',
-                      time: ts.toDate(),
-                    ));
-                  }
-                }
-
-                // Trip log checkpoints
-                for (final doc in logSnap.data?.docs ?? []) {
-                  final d = doc.data() as Map<String, dynamic>;
-                  final ts = d['timestamp'] as Timestamp?;
-                  if (ts != null) {
-                    items.add(_ActivityItem(
-                      icon: Icons.location_on_rounded,
-                      color: const Color(0xFF7C4DFF),
-                      title: d['label'] as String? ?? 'Checkpoint',
-                      subtitle: '',
-                      time: ts.toDate(),
-                    ));
-                  }
-                }
-
-                // Fuel logs
-                for (final doc in fuelSnap.data?.docs ?? []) {
-                  final d = doc.data() as Map<String, dynamic>;
-                  final ts = d['timestamp'] as Timestamp?;
-                  if (ts != null) {
-                    items.add(_ActivityItem(
-                      icon: Icons.local_gas_station_rounded,
-                      color: const Color(0xFFFF6D00),
-                      title: 'Fuel — ₹${(d['totalCost'] as num?)?.toStringAsFixed(0) ?? '0'}',
-                      subtitle: '${(d['liters'] as num?)?.toStringAsFixed(1) ?? '0'} L',
-                      time: ts.toDate(),
-                    ));
-                  }
-                }
-
-                items.sort((a, b) => b.time.compareTo(a.time));
-                final display = items.take(5).toList();
-
-                if (display.isEmpty) {
-                  return _emptyCard('No recent activity yet.\nStart a trip, log fuel, or add expenses!');
-                }
-
-                return Column(
-                  children: display.map((item) {
-                    final ago = _timeAgo(item.time);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white.withOpacity(0.06)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36, height: 36,
-                              decoration: BoxDecoration(
-                                color: item.color.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(item.icon, color: item.color, size: 18),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(item.title, style: GoogleFonts.inter(
-                                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  if (item.subtitle.isNotEmpty)
-                                    Text(item.subtitle, style: GoogleFonts.inter(
-                                        color: Colors.white30, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                            Text(ago, style: GoogleFonts.inter(color: Colors.white24, fontSize: 10)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        Text(ago, style: GoogleFonts.inter(color: Colors.white24, fontSize: 10)),
+                      ],
+                    ),
+                  ),
                 );
-              },
+              }).toList(),
             );
           },
         );
@@ -827,29 +808,27 @@ class _LiveStats extends StatelessWidget {
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('trips')
-              .where('userId', isEqualTo: uid)
+              .collection('users').doc(uid).collection('recent_tracks')
               .snapshots(),
-          builder: (context, tripSnap) {
-            final tripCount = tripSnap.data?.docs.length ?? 0;
+          builder: (context, trackSnap) {
+            final tripCount = trackSnap.data?.docs.length ?? 0;
 
-            // Calculate total distance from trips
+            // Calculate total distance from recent_tracks
             double totalKm = 0;
-            for (final doc in tripSnap.data?.docs ?? []) {
+            for (final doc in trackSnap.data?.docs ?? []) {
               final data = doc.data() as Map<String, dynamic>;
               totalKm += (data['distanceKm'] as num?)?.toDouble() ?? 0;
             }
 
             return StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('fuel_logs')
-                  .where('userId', isEqualTo: uid)
+                  .collection('users').doc(uid).collection('trip_plans')
                   .snapshots(),
-              builder: (context, fuelSnap) {
+              builder: (context, planSnap) {
                 // Show loading while all streams are waiting
                 final allWaiting = teamSnap.connectionState == ConnectionState.waiting
-                    && tripSnap.connectionState == ConnectionState.waiting
-                    && fuelSnap.connectionState == ConnectionState.waiting;
+                    && trackSnap.connectionState == ConnectionState.waiting
+                    && planSnap.connectionState == ConnectionState.waiting;
 
                 if (allWaiting) {
                   return Column(
@@ -869,17 +848,18 @@ class _LiveStats extends StatelessWidget {
                   );
                 }
 
-                double totalFuelCost = 0;
-                for (final doc in fuelSnap.data?.docs ?? []) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  totalFuelCost += (data['totalCost'] as num?)?.toDouble() ?? 0;
+                // Handle errors
+                if (teamSnap.hasError || trackSnap.hasError || planSnap.hasError) {
+                  return _statsGrid('—', '— km', '—', '—');
                 }
+
+                final planCount = planSnap.data?.docs.length ?? 0;
 
                 return _statsGrid(
                   '$tripCount',
                   totalKm > 0 ? '${totalKm.toStringAsFixed(0)} km' : '0 km',
                   '$teamCount',
-                  '₹${totalFuelCost.toStringAsFixed(0)}',
+                  '$planCount',
                 );
               },
             );
@@ -904,7 +884,7 @@ class _LiveStats extends StatelessWidget {
           children: [
             Expanded(child: _statCard(teams, 'Teams', Icons.people_rounded, const Color(0xFF7C4DFF))),
             const SizedBox(width: 12),
-            Expanded(child: _statCard(fuel, 'Fuel Cost', Icons.local_gas_station_rounded, const Color(0xFFFF6D00))),
+            Expanded(child: _statCard(fuel, 'Plans', Icons.map_rounded, const Color(0xFFFF6D00))),
           ],
         ),
       ],
