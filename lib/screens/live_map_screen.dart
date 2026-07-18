@@ -2683,32 +2683,55 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 physics: const BouncingScrollPhysics(),
                 child: Row(
                 children: [
-                // ── START / STOP tracking button ──
+                // ── START / STOP tracking + navigation button ──
                 GestureDetector(
-                  onTap: _isLiveTracking ? _stopLiveTracking : _startLiveTracking,
+                  onTap: () {
+                    if (_isLiveTracking || _isNavigating) {
+                      // Stop both
+                      if (_isLiveTracking) _stopLiveTracking();
+                      if (_isNavigating) _stopNavigation();
+                    } else {
+                      // Start tracking
+                      _startLiveTracking();
+                      // Also start navigation if route is loaded
+                      if (_routeWaypoints.length >= 2) {
+                        _startNavigation();
+                      }
+                    }
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      gradient: _isLiveTracking
+                      gradient: (_isLiveTracking || _isNavigating)
                           ? const LinearGradient(colors: [Color(0xFFE53935), Color(0xFFFF5252)])
-                          : const LinearGradient(colors: [Color(0xFF00BFA5), Color(0xFF009688)]),
+                          : _routeWaypoints.length >= 2
+                              ? const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF00BFA5)])
+                              : const LinearGradient(colors: [Color(0xFF00BFA5), Color(0xFF009688)]),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: (_isLiveTracking ? const Color(0xFFE53935) : const Color(0xFF00BFA5)).withOpacity(0.4),
+                          color: ((_isLiveTracking || _isNavigating) ? const Color(0xFFE53935) : const Color(0xFF00BFA5)).withOpacity(0.4),
                           blurRadius: 12, offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(
-                        _isLiveTracking ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                        (_isLiveTracking || _isNavigating)
+                            ? Icons.stop_rounded
+                            : _routeWaypoints.length >= 2
+                                ? Icons.navigation_rounded
+                                : Icons.play_arrow_rounded,
                         color: Colors.white, size: 20,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _isLiveTracking ? 'Stop · $_trackElapsed' : 'Start',
+                        (_isLiveTracking || _isNavigating)
+                            ? 'Stop · $_trackElapsed'
+                            : _routeWaypoints.length >= 2
+                                ? 'Start & Navigate'
+                                : 'Start',
                         style: GoogleFonts.inter(
                           color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                       ),
@@ -2878,32 +2901,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               ),
             ),
           ),
-
-          // ── NAVIGATE BUTTON (below route planner) ──
-          if (_routeWaypoints.length >= 2 && !_isNavigating)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 100,
-              right: 16,
-              child: GestureDetector(
-                onTap: _startNavigation,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF00BFA5)]),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(color: const Color(0xFF1A73E8).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 3)),
-                    ],
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.navigation_rounded, color: Colors.white, size: 18),
-                    const SizedBox(width: 6),
-                    Text('Navigate', style: GoogleFonts.inter(
-                      color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ]),
-                ),
-              ),
-            ),
 
           // ── NAVIGATION OVERLAY (turn-by-turn) ──
           if (_isNavigating && _navRoute != null) ...[
