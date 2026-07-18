@@ -75,6 +75,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   String _trackElapsed = '00:00';
   Timer? _trackTimer;
 
+  // Turn-by-turn navigation
+  bool _isNavigating = false;
+  NavigationRoute? _navRoute;
+  int _currentStepIndex = 0;
+  StreamSubscription<dynamic>? _navGpsSub;
+  double _navRemainingKm = 0;
+  double _navRemainingMin = 0;
+
   // Member colors
   static const List<Color> _memberColors = [
     Color(0xFF1A73E8), Color(0xFF00BFA5), Color(0xFFFF6D00),
@@ -680,6 +688,165 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _tripStops = [];
       _stopMarkers = {};
     });
+  }
+
+  // ════════════════════════════════════
+  // TURN-BY-TURN NAVIGATION
+  // ════════════════════════════════════
+  Future<void> _startNavigation() async {
+    if (_routeWaypoints.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Add at least 2 waypoints first', style: GoogleFonts.inter()),
+        backgroundColor: Colors.redAccent,
+      ));
+      return;
+    }
+
+    // Fetch route with steps
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Fetching navigation route...', style: GoogleFonts.inter()),
+      backgroundColor: const Color(0xFF1A73E8),
+      duration: const Duration(seconds: 1),
+    ));
+
+    final llPoints = _routeWaypoints.map((w) => ll.LatLng(w['lat'], w['lng'])).toList();
+    final navRoute = await RouteService.getDirectionsWithSteps(llPoints);
+
+    if (navRoute.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not fetch navigation route', style: GoogleFonts.inter()),
+          backgroundColor: Colors.redAccent,
+        ));
+      }
+      return;
+    }
+
+    setState(() {
+      _isNavigating = true;
+      _navRoute = navRoute;
+      _currentStepIndex = 0;
+      _navRemainingKm = navRoute.totalDistanceKm;
+      _navRemainingMin = navRoute.totalDurationMin;
+      _routePolyline = navRoute.polyline.map((p) => LatLng(p.latitude, p.longitude)).toList();
+      _routeDistKm = navRoute.totalDistanceKm;
+      _routeDurMin = navRoute.totalDurationMin;
+    });
+
+    // Zoom to first step with tilt for navigation feel
+    if (_gMapController != null && navRoute.steps.isNotEmpty) {
+      final firstStep = navRoute.steps[0];
+      _gMapController!.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(firstStep.location.latitude, firstStep.location.longitude),
+          zoom: 17,
+          tilt: 50,
+          bearing: 0,
+        ),
+      ));
+    }
+
+    // Start GPS stream to track progress
+    _navGpsSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((pos) {
+      if (!mounted || !_isNavigating || _navRoute == null) return;
+
+      final myPos = LatLng(pos.latitude, pos.longitude);
+      setState(() {
+        _myLocation = myPos;
+        _accuracy = pos.accuracy;
+      });
+
+      // Check if we've reached the current step location
+      final steps = _navRoute!.steps;
+      if (_currentStepIndex < steps.length - 1) {
+        final nextStep = steps[_currentStepIndex + 1];
+        final distToNext = _haversine(myPos,
+            LatLng(nextStep.location.latitude, nextStep.location.longitude));
+
+        // Advance to next step when within 50m
+        if (distToNext < 0.05) {
+          setState(() {
+            _currentStepIndex++;
+            // Update remaining distance/time
+            double remainDist = 0;
+            double remainTime = 0;
+            for (int i = _currentStepIndex; i < steps.length; i++) {
+              remainDist += steps[i].distanceM;
+              remainTime += steps[i].durationS;
+            }
+            _navRemainingKm = remainDist / 1000;
+            _navRemainingMin = remainTime / 60;
+          });
+        }
+      }
+
+      // Check if arrived at final destination
+      if (_currentStepIndex >= steps.length - 1) {
+        final lastStep = steps.last;
+        final distToEnd = _haversine(myPos,
+            LatLng(lastStep.location.latitude, lastStep.location.longitude));
+        if (distToEnd < 0.05) {
+          _stopNavigation(arrived: true);
+          return;
+        }
+      }
+
+      // Keep camera following with forward-looking bearing
+      if (_followMe) {
+        _gMapController?.animateCamera(CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: myPos,
+            zoom: 17,
+            tilt: 50,
+            bearing: pos.heading,
+          ),
+        ));
+      }
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('🧭 Navigation started!', style: GoogleFonts.inter()),
+        backgroundColor: const Color(0xFF00BFA5),
+        duration: const Duration(seconds: 2),
+      ));
+    }
+  }
+
+  void _stopNavigation({bool arrived = false}) {
+    _navGpsSub?.cancel();
+    _navGpsSub = null;
+
+    setState(() {
+      _isNavigating = false;
+      _navRoute = null;
+      _currentStepIndex = 0;
+      _navRemainingKm = 0;
+      _navRemainingMin = 0;
+    });
+
+    // Reset camera tilt
+    if (_gMapController != null && _myLocation != null) {
+      _gMapController!.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(target: _myLocation!, zoom: 15, tilt: 0, bearing: 0),
+      ));
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          arrived ? '🏁 You have arrived!' : 'Navigation stopped',
+          style: GoogleFonts.inter(),
+        ),
+        backgroundColor: arrived ? const Color(0xFF00BFA5) : const Color(0xFF161B22),
+        duration: const Duration(seconds: 2),
+      ));
+    }
   }
 
   // ════════════════════════════════════
@@ -2711,6 +2878,206 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               ),
             ),
           ),
+
+          // ── NAVIGATE BUTTON (below route planner) ──
+          if (_routeWaypoints.length >= 2 && !_isNavigating)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 100,
+              right: 16,
+              child: GestureDetector(
+                onTap: _startNavigation,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF00BFA5)]),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFF1A73E8).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 3)),
+                    ],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.navigation_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 6),
+                    Text('Navigate', style: GoogleFonts.inter(
+                      color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ]),
+                ),
+              ),
+            ),
+
+          // ── NAVIGATION OVERLAY (turn-by-turn) ──
+          if (_isNavigating && _navRoute != null) ...[
+            // Top instruction banner
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 12, 20, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF1A73E8), Color(0xFF1565C0)],
+                  ),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(color: Color(0x40000000), blurRadius: 16, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Current step
+                    if (_currentStepIndex < _navRoute!.steps.length) ...[
+                      Row(
+                        children: [
+                          // Direction icon
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Center(
+                              child: Text(
+                                _navRoute!.steps[_currentStepIndex].directionIcon,
+                                style: const TextStyle(fontSize: 28),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          // Instruction + distance
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _navRoute!.steps[_currentStepIndex].instruction,
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _navRoute!.steps[_currentStepIndex].distanceText,
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white70,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    // Remaining distance, ETA, stop button
+                    Row(
+                      children: [
+                        // Remaining
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.straighten_rounded, color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_navRemainingKm.toStringAsFixed(1)} km',
+                              style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ]),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.access_time_rounded, color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              _navRemainingMin < 60
+                                  ? '${_navRemainingMin.toStringAsFixed(0)} min'
+                                  : '${(_navRemainingMin / 60).toStringAsFixed(1)} hr',
+                              style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ]),
+                        ),
+                        const SizedBox(width: 8),
+                        // Step counter
+                        Text(
+                          'Step ${_currentStepIndex + 1}/${_navRoute!.steps.length}',
+                          style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
+                        ),
+                        const Spacer(),
+                        // Stop navigation
+                        GestureDetector(
+                          onTap: () => _stopNavigation(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE53935),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.close_rounded, color: Colors.white, size: 16),
+                              const SizedBox(width: 4),
+                              Text('Stop', style: GoogleFonts.inter(
+                                color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ]),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Next step preview
+                    if (_currentStepIndex + 1 < _navRoute!.steps.length) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(children: [
+                          Text('Then ', style: GoogleFonts.inter(color: Colors.white38, fontSize: 11)),
+                          Text(
+                            _navRoute!.steps[_currentStepIndex + 1].directionIcon,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _navRoute!.steps[_currentStepIndex + 1].instruction,
+                              style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            _navRoute!.steps[_currentStepIndex + 1].distanceText,
+                            style: GoogleFonts.inter(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ]),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
 
           // ── TRIP CONTROL BUTTONS (top left, below team bar) ──
           Positioned(
