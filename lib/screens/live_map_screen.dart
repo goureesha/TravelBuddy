@@ -888,46 +888,20 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _trackStartTime = DateTime.now();
     });
 
-    // UI sync timer — polls background service data every 2 seconds
+    // UI sync timer — updates elapsed time every 2 seconds
     _trackTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
       if (!mounted || !_isLiveTracking) return;
 
-      if (kIsWeb) {
-        // Web fallback: just update elapsed time
-        if (_trackStartTime == null) return;
-        final diff = DateTime.now().difference(_trackStartTime!);
-        final h = diff.inHours;
-        final m = diff.inMinutes.remainder(60);
-        final s = diff.inSeconds.remainder(60);
-        setState(() {
-          _trackElapsed = h > 0
-              ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
-              : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-        });
-        return;
-      }
-
-      // Sync from background service
-      final snapshot = await BackgroundTrackingService.getSnapshot();
-      if (!mounted) return;
-
-      final newPoints = snapshot.points
-          .map((p) => LatLng(p[0], p[1]))
-          .toList();
-
+      if (_trackStartTime == null) return;
+      final diff = DateTime.now().difference(_trackStartTime!);
+      final h = diff.inHours;
+      final m = diff.inMinutes.remainder(60);
+      final s = diff.inSeconds.remainder(60);
       setState(() {
-        _trackPoints = newPoints;
-        _trackDistanceKm = snapshot.distanceKm;
-        _trackElapsed = snapshot.elapsed;
-        if (newPoints.isNotEmpty) {
-          _myLocation = newPoints.last;
-        }
+        _trackElapsed = h > 0
+            ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+            : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
       });
-
-      // Keep camera centered on latest point
-      if (_followMe && newPoints.isNotEmpty) {
-        _gMapController?.animateCamera(CameraUpdate.newLatLng(newPoints.last));
-      }
     });
 
     // Always start foreground GPS stream for live trail rendering on the map
@@ -974,28 +948,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     _trackTimer?.cancel();
     _trackTimer = null;
 
-    // Get final data from background service
-    List<LatLng> points;
-    double distKm;
-    String elapsed;
-    Duration duration;
-
-    if (!kIsWeb) {
-      final snapshot = await BackgroundTrackingService.getSnapshot();
-      points = snapshot.points.map((p) => LatLng(p[0], p[1])).toList();
-      distKm = snapshot.distanceKm;
-      elapsed = snapshot.elapsed;
-      duration = snapshot.startTime != null
-          ? DateTime.now().difference(snapshot.startTime!)
-          : Duration.zero;
-    } else {
-      points = List<LatLng>.from(_trackPoints);
-      distKm = _trackDistanceKm;
-      elapsed = _trackElapsed;
-      duration = _trackStartTime != null
-          ? DateTime.now().difference(_trackStartTime!)
-          : Duration.zero;
-    }
+    // Use foreground GPS points directly (they're always available)
+    List<LatLng> points = List<LatLng>.from(_trackPoints);
+    double distKm = _trackDistanceKm;
+    String elapsed = _trackElapsed;
+    Duration duration = _trackStartTime != null
+        ? DateTime.now().difference(_trackStartTime!)
+        : Duration.zero;
 
     setState(() {
       _isLiveTracking = false;
@@ -1031,6 +990,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           'name': startName,
           'distanceKm': double.parse(distKm.toStringAsFixed(2)),
           'durationSeconds': duration.inSeconds,
+          'duration': elapsed,
           'durationText': elapsed,
           'pointCount': points.length,
           'startLat': points.first.latitude,
@@ -1038,6 +998,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           'endLat': points.last.latitude,
           'endLng': points.last.longitude,
           'polyline': points.map((p) => '${p.latitude},${p.longitude}').join(';'),
+          'startTime': _trackStartTime != null
+              ? Timestamp.fromDate(_trackStartTime!)
+              : FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
           'userId': uid,
         });
