@@ -691,6 +691,273 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   // ════════════════════════════════════
+  // TRIP HISTORY
+  // ════════════════════════════════════
+  void _showTripHistorySheet() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Sign in to view trip history', style: GoogleFonts.inter()),
+        backgroundColor: Colors.redAccent,
+      ));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2128),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            // Handle
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C4DFF).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.history_rounded, color: Color(0xFF7C4DFF), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('Trip History', style: GoogleFonts.inter(
+                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Text('Tap to view on map', style: GoogleFonts.inter(
+                    color: Colors.white30, fontSize: 11)),
+                ],
+              ),
+            ),
+            Divider(color: Colors.white.withOpacity(0.06)),
+            // List of trips
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users').doc(uid).collection('recent_tracks')
+                    .orderBy('createdAt', descending: true)
+                    .limit(50)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF7C4DFF)));
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error loading trips',
+                        style: GoogleFonts.inter(color: Colors.white38)));
+                  }
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.route_rounded, color: Colors.white.withOpacity(0.1), size: 64),
+                          const SizedBox(height: 12),
+                          Text('No trips yet', style: GoogleFonts.inter(
+                              color: Colors.white38, fontSize: 15)),
+                          const SizedBox(height: 4),
+                          Text('Start tracking to see your trips here!',
+                              style: GoogleFonts.inter(color: Colors.white24, fontSize: 12)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final data = docs[index].data() as Map<String, dynamic>;
+                      final distKm = (data['distanceKm'] as num?)?.toDouble() ?? 0;
+                      final duration = data['durationText'] as String? ?? data['duration'] as String? ?? '';
+                      final pointCount = data['pointCount'] as int? ?? 0;
+                      final name = data['name'] as String? ?? 'Trip';
+                      final createdAt = data['createdAt'] as Timestamp?;
+                      final dateStr = createdAt != null
+                          ? '${createdAt.toDate().day}/${createdAt.toDate().month}/${createdAt.toDate().year}'
+                          : '';
+                      final docId = docs[index].id;
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _loadTripOnMap(data, docId);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                          ),
+                          child: Row(
+                            children: [
+                              // Route icon with gradient
+                              Container(
+                                width: 44, height: 44,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF7C4DFF), Color(0xFF00BFA5)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.route_rounded, color: Colors.white, size: 22),
+                              ),
+                              const SizedBox(width: 14),
+                              // Trip details
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name, style: GoogleFonts.inter(
+                                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.straighten_rounded, color: Colors.white30, size: 12),
+                                        const SizedBox(width: 4),
+                                        Text('${distKm.toStringAsFixed(1)} km',
+                                            style: GoogleFonts.inter(color: Colors.white54, fontSize: 11)),
+                                        const SizedBox(width: 12),
+                                        Icon(Icons.access_time_rounded, color: Colors.white30, size: 12),
+                                        const SizedBox(width: 4),
+                                        Text(duration,
+                                            style: GoogleFonts.inter(color: Colors.white54, fontSize: 11)),
+                                        const SizedBox(width: 12),
+                                        Icon(Icons.place_rounded, color: Colors.white30, size: 12),
+                                        const SizedBox(width: 4),
+                                        Text('$pointCount pts',
+                                            style: GoogleFonts.inter(color: Colors.white54, fontSize: 11)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Date + arrow
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(dateStr, style: GoogleFonts.inter(
+                                      color: Colors.white24, fontSize: 10)),
+                                  const SizedBox(height: 4),
+                                  const Icon(Icons.chevron_right_rounded, color: Colors.white24, size: 20),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _loadTripOnMap(Map<String, dynamic> data, String docId) {
+    final polylineStr = data['polyline'] as String?;
+    if (polylineStr == null || polylineStr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('No route data for this trip', style: GoogleFonts.inter()),
+        backgroundColor: Colors.redAccent,
+      ));
+      return;
+    }
+
+    // Parse polyline points
+    final points = <LatLng>[];
+    for (final seg in polylineStr.split(';')) {
+      final parts = seg.split(',');
+      if (parts.length == 2) {
+        final lat = double.tryParse(parts[0]);
+        final lng = double.tryParse(parts[1]);
+        if (lat != null && lng != null) points.add(LatLng(lat, lng));
+      }
+    }
+
+    if (points.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Trip route too short to display', style: GoogleFonts.inter()),
+        backgroundColor: Colors.redAccent,
+      ));
+      return;
+    }
+
+    final distKm = (data['distanceKm'] as num?)?.toDouble() ?? 0;
+    final duration = data['durationText'] as String? ?? data['duration'] as String? ?? '';
+    final name = data['name'] as String? ?? 'Trip';
+
+    setState(() {
+      // Clear existing route and load history trip
+      _routePolyline = points;
+      _routeDistKm = distKm;
+      _routeDurMin = 0;
+      _routeWaypoints = [
+        {'name': 'Start', 'lat': points.first.latitude, 'lng': points.first.longitude},
+        {'name': 'End', 'lat': points.last.latitude, 'lng': points.last.longitude},
+      ];
+      _trackPoints = points;
+      _trackDistanceKm = distKm;
+      _trackElapsed = duration;
+    });
+
+    // Zoom to fit the entire trip
+    if (_gMapController != null && points.length >= 2) {
+      double minLat = points.first.latitude, maxLat = points.first.latitude;
+      double minLng = points.first.longitude, maxLng = points.first.longitude;
+      for (final p in points) {
+        if (p.latitude < minLat) minLat = p.latitude;
+        if (p.latitude > maxLat) maxLat = p.latitude;
+        if (p.longitude < minLng) minLng = p.longitude;
+        if (p.longitude > maxLng) maxLng = p.longitude;
+      }
+      _gMapController!.animateCamera(CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        60, // padding
+      ));
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('📍 $name — ${distKm.toStringAsFixed(1)} km · $duration',
+          style: GoogleFonts.inter()),
+      backgroundColor: const Color(0xFF7C4DFF),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  // ════════════════════════════════════
   // TURN-BY-TURN NAVIGATION
   // ════════════════════════════════════
   Future<void> _startNavigation() async {
@@ -2747,6 +3014,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                       duration: const Duration(seconds: 1),
                     ));
                   },
+                ),
+                const SizedBox(width: 8),
+                // Trip History button
+                _mapButton(
+                  icon: Icons.history_rounded,
+                  color: const Color(0xFF7C4DFF),
+                  onTap: _showTripHistorySheet,
                 ),
                 const SizedBox(width: 8),
                 // Share location toggle
