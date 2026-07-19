@@ -494,12 +494,12 @@ class _TripCountdown extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const SizedBox.shrink();
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users').doc(uid).collection('planned_trips')
-          .snapshots(),
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('trip_plans')
+          .get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
+        if (!snapshot.hasData || snapshot.hasError) return const SizedBox.shrink();
 
         final now = DateTime.now();
         DateTime? nextTripDate;
@@ -507,22 +507,20 @@ class _TripCountdown extends StatelessWidget {
 
         for (final doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          final dateStr = data['startDate'] as String?;
-          if (dateStr == null) continue;
-
-          // Try parsing common date formats
+          // Try startDate string or createdAt timestamp
           DateTime? tripDate;
-          try {
-            // Try yyyy-MM-dd
-            tripDate = DateTime.tryParse(dateStr);
-            if (tripDate == null) {
-              // Try dd/MM/yyyy
-              final parts = dateStr.split('/');
-              if (parts.length == 3) {
-                tripDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+          final dateStr = data['startDate'] as String?;
+          if (dateStr != null) {
+            try {
+              tripDate = DateTime.tryParse(dateStr);
+              if (tripDate == null) {
+                final parts = dateStr.split('/');
+                if (parts.length == 3) {
+                  tripDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+                }
               }
-            }
-          } catch (_) {}
+            } catch (_) {}
+          }
 
           if (tripDate != null && tripDate.isAfter(now)) {
             if (nextTripDate == null || tripDate.isBefore(nextTripDate)) {
@@ -602,7 +600,7 @@ class _TripCountdown extends StatelessWidget {
   }
 }
 
-/// Recent activity feed from multiple Firestore collections
+/// Recent activity feed — uses .get() to avoid index issues
 class _RecentActivity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -611,135 +609,134 @@ class _RecentActivity extends StatelessWidget {
       return _emptyCard('Sign in to see activity');
     }
 
-    // Use trip_plans (saved plans) and recent_tracks (completed rides)
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users').doc(uid).collection('trip_plans')
-          .orderBy('createdAt', descending: true).limit(5)
-          .snapshots(),
-      builder: (context, planSnap) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users').doc(uid).collection('recent_tracks')
-              .orderBy('startTime', descending: true).limit(5)
-              .snapshots(),
-          builder: (context, trackSnap) {
-            // Show loading shimmer while streams are waiting
-            final isLoading = planSnap.connectionState == ConnectionState.waiting
-                && trackSnap.connectionState == ConnectionState.waiting;
+    return FutureBuilder<List<_ActivityItem>>(
+      future: _loadActivity(uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Column(
+            children: List.generate(3, (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Center(
+                  child: SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 1.5,
+                      color: Colors.white.withOpacity(0.2))),
+                ),
+              ),
+            )),
+          );
+        }
 
-            if (isLoading) {
-              return Column(
-                children: List.generate(3, (_) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+        if (snapshot.hasError) {
+          return _emptyCard('Unable to load activity.\nCheck your connection.');
+        }
+
+        final display = snapshot.data ?? [];
+        if (display.isEmpty) {
+          return _emptyCard('No recent activity yet.\nStart a trip or save a plan!');
+        }
+
+        return Column(
+          children: display.map((item) {
+            final ago = _timeAgo(item.time);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: item.color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(item.icon, color: item.color, size: 18),
                     ),
-                    child: Center(
-                      child: SizedBox(width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 1.5,
-                          color: Colors.white.withOpacity(0.2))),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.title, style: GoogleFonts.inter(
+                              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          if (item.subtitle.isNotEmpty)
+                            Text(item.subtitle, style: GoogleFonts.inter(
+                                color: Colors.white30, fontSize: 11)),
+                        ],
+                      ),
                     ),
-                  ),
-                )),
-              );
-            }
-
-            // Handle errors gracefully
-            if (planSnap.hasError && trackSnap.hasError) {
-              return _emptyCard('Unable to load activity.\nCheck your connection.');
-            }
-
-            final List<_ActivityItem> items = [];
-
-            // Saved trip plans
-            for (final doc in planSnap.data?.docs ?? []) {
-              final d = doc.data() as Map<String, dynamic>;
-              final ts = d['createdAt'] as Timestamp?;
-              if (ts != null) {
-                items.add(_ActivityItem(
-                  icon: Icons.map_rounded,
-                  color: const Color(0xFF1A73E8),
-                  title: d['name'] as String? ?? 'Trip Plan',
-                  subtitle: '${(d['routeDistanceKm'] as num?)?.toStringAsFixed(1) ?? '0'} km',
-                  time: ts.toDate(),
-                ));
-              }
-            }
-
-            // Completed tracks
-            for (final doc in trackSnap.data?.docs ?? []) {
-              final d = doc.data() as Map<String, dynamic>;
-              final ts = d['startTime'] as Timestamp?;
-              if (ts != null) {
-                items.add(_ActivityItem(
-                  icon: Icons.route_rounded,
-                  color: const Color(0xFF00BFA5),
-                  title: 'Trip — ${(d['distanceKm'] as num?)?.toStringAsFixed(1) ?? '0'} km',
-                  subtitle: d['duration'] as String? ?? '',
-                  time: ts.toDate(),
-                ));
-              }
-            }
-
-            items.sort((a, b) => b.time.compareTo(a.time));
-            final display = items.take(5).toList();
-
-            if (display.isEmpty) {
-              return _emptyCard('No recent activity yet.\nStart a trip or save a plan!');
-            }
-
-            return Column(
-              children: display.map((item) {
-                final ago = _timeAgo(item.time);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: item.color.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(item.icon, color: item.color, size: 18),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.title, style: GoogleFonts.inter(
-                                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                              if (item.subtitle.isNotEmpty)
-                                Text(item.subtitle, style: GoogleFonts.inter(
-                                    color: Colors.white30, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                        Text(ago, style: GoogleFonts.inter(color: Colors.white24, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+                    Text(ago, style: GoogleFonts.inter(color: Colors.white24, fontSize: 10)),
+                  ],
+                ),
+              ),
             );
-          },
+          }).toList(),
         );
       },
     );
+  }
+
+  static Future<List<_ActivityItem>> _loadActivity(String uid) async {
+    final items = <_ActivityItem>[];
+
+    // Load trip plans (no orderBy — avoids index requirement)
+    try {
+      final planSnap = await FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('trip_plans')
+          .limit(10)
+          .get();
+      for (final doc in planSnap.docs) {
+        final d = doc.data();
+        final ts = d['createdAt'] as Timestamp?;
+        if (ts != null) {
+          items.add(_ActivityItem(
+            icon: Icons.map_rounded,
+            color: const Color(0xFF1A73E8),
+            title: d['name'] as String? ?? 'Trip Plan',
+            subtitle: '${(d['routeDistanceKm'] as num?)?.toStringAsFixed(1) ?? '0'} km',
+            time: ts.toDate(),
+          ));
+        }
+      }
+    } catch (_) {}
+
+    // Load recent tracks (no orderBy — avoids index requirement)
+    try {
+      final trackSnap = await FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('recent_tracks')
+          .limit(10)
+          .get();
+      for (final doc in trackSnap.docs) {
+        final d = doc.data();
+        final ts = d['createdAt'] as Timestamp? ?? d['startTime'] as Timestamp?;
+        if (ts != null) {
+          items.add(_ActivityItem(
+            icon: Icons.route_rounded,
+            color: const Color(0xFF00BFA5),
+            title: 'Trip — ${(d['distanceKm'] as num?)?.toStringAsFixed(1) ?? '0'} km',
+            subtitle: d['duration'] as String? ?? d['durationText'] as String? ?? '',
+            time: ts.toDate(),
+          ));
+        }
+      }
+    } catch (_) {}
+
+    // Sort by time descending, take top 5
+    items.sort((a, b) => b.time.compareTo(a.time));
+    return items.take(5).toList();
   }
 
   static Widget _emptyCard(String message) {
@@ -795,78 +792,82 @@ class _LiveStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      return _statsGrid('0', '0 km', '0', '₹0');
+      return _statsGrid('0', '0 km', '0', '0');
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('teams')
-          .where('members', arrayContains: uid)
-          .snapshots(),
-      builder: (context, teamSnap) {
-        final teamCount = teamSnap.data?.docs.length ?? 0;
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _loadStats(uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Column(
+            children: [
+              Row(children: [
+                Expanded(child: _loadingCard()),
+                const SizedBox(width: 12),
+                Expanded(child: _loadingCard()),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: _loadingCard()),
+                const SizedBox(width: 12),
+                Expanded(child: _loadingCard()),
+              ]),
+            ],
+          );
+        }
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users').doc(uid).collection('recent_tracks')
-              .snapshots(),
-          builder: (context, trackSnap) {
-            final tripCount = trackSnap.data?.docs.length ?? 0;
+        final data = snapshot.data ?? {};
+        final tripCount = data['trips'] as int? ?? 0;
+        final totalKm = data['totalKm'] as double? ?? 0;
+        final teamCount = data['teams'] as int? ?? 0;
+        final planCount = data['plans'] as int? ?? 0;
 
-            // Calculate total distance from recent_tracks
-            double totalKm = 0;
-            for (final doc in trackSnap.data?.docs ?? []) {
-              final data = doc.data() as Map<String, dynamic>;
-              totalKm += (data['distanceKm'] as num?)?.toDouble() ?? 0;
-            }
-
-            return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users').doc(uid).collection('trip_plans')
-                  .snapshots(),
-              builder: (context, planSnap) {
-                // Show loading while all streams are waiting
-                final allWaiting = teamSnap.connectionState == ConnectionState.waiting
-                    && trackSnap.connectionState == ConnectionState.waiting
-                    && planSnap.connectionState == ConnectionState.waiting;
-
-                if (allWaiting) {
-                  return Column(
-                    children: [
-                      Row(children: [
-                        Expanded(child: _loadingCard()),
-                        const SizedBox(width: 12),
-                        Expanded(child: _loadingCard()),
-                      ]),
-                      const SizedBox(height: 12),
-                      Row(children: [
-                        Expanded(child: _loadingCard()),
-                        const SizedBox(width: 12),
-                        Expanded(child: _loadingCard()),
-                      ]),
-                    ],
-                  );
-                }
-
-                // Handle errors
-                if (teamSnap.hasError || trackSnap.hasError || planSnap.hasError) {
-                  return _statsGrid('—', '— km', '—', '—');
-                }
-
-                final planCount = planSnap.data?.docs.length ?? 0;
-
-                return _statsGrid(
-                  '$tripCount',
-                  totalKm > 0 ? '${totalKm.toStringAsFixed(0)} km' : '0 km',
-                  '$teamCount',
-                  '$planCount',
-                );
-              },
-            );
-          },
+        return _statsGrid(
+          '$tripCount',
+          totalKm > 0 ? '${totalKm.toStringAsFixed(0)} km' : '0 km',
+          '$teamCount',
+          '$planCount',
         );
       },
     );
+  }
+
+  static Future<Map<String, dynamic>> _loadStats(String uid) async {
+    int trips = 0;
+    double totalKm = 0;
+    int teams = 0;
+    int plans = 0;
+
+    // Recent tracks
+    try {
+      final trackSnap = await FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('recent_tracks')
+          .get();
+      trips = trackSnap.docs.length;
+      for (final doc in trackSnap.docs) {
+        final d = doc.data();
+        totalKm += (d['distanceKm'] as num?)?.toDouble() ?? 0;
+      }
+    } catch (_) {}
+
+    // Teams
+    try {
+      final teamSnap = await FirebaseFirestore.instance
+          .collection('teams')
+          .where('members', arrayContains: uid)
+          .get();
+      teams = teamSnap.docs.length;
+    } catch (_) {}
+
+    // Trip plans
+    try {
+      final planSnap = await FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('trip_plans')
+          .get();
+      plans = planSnap.docs.length;
+    } catch (_) {}
+
+    return {'trips': trips, 'totalKm': totalKm, 'teams': teams, 'plans': plans};
   }
 
   Widget _statsGrid(String trips, String distance, String teams, String fuel) {
