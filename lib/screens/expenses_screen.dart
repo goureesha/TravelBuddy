@@ -443,14 +443,35 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
           const SizedBox(height: 8),
           ...balances.entries.map((e) {
             final isPositive = e.value >= 0;
+            // Check if key looks like a UID (long alphanumeric, no spaces)
+            final isUid = e.key.length > 20 && !e.key.contains(' ');
+            
+            Widget nameWidget;
+            if (isUid) {
+              // Resolve UID to display name
+              nameWidget = FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection('users').doc(e.key).get(),
+                builder: (ctx, snap) {
+                  final name = (snap.data?.data() as Map<String, dynamic>?)?['displayName'] 
+                      ?? e.key.substring(0, 8);
+                  return Text(name as String, 
+                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+                      overflow: TextOverflow.ellipsis);
+                },
+              );
+            } else {
+              nameWidget = Text(e.key, 
+                  style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+                  overflow: TextOverflow.ellipsis);
+            }
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(children: [
                 Icon(isPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
                     color: isPositive ? const Color(0xFF00BFA5) : Colors.redAccent, size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text(e.key, style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
-                    overflow: TextOverflow.ellipsis)),
+                Expanded(child: nameWidget),
                 Text('${isPositive ? '+' : ''}₹${e.value.toStringAsFixed(2)}',
                     style: GoogleFonts.inter(
                       color: isPositive ? const Color(0xFF00BFA5) : Colors.redAccent,

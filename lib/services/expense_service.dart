@@ -26,6 +26,20 @@ class ExpenseService {
   }) async {
     if (_uid == null) return null;
 
+    // Resolve UIDs to display names for the split
+    Map<String, String> splitWithNames = {};
+    if (splitWith != null && splitWith.isNotEmpty) {
+      for (final uid in splitWith) {
+        try {
+          final userDoc = await _firestore.collection('users').doc(uid).get();
+          final userData = userDoc.data() as Map<String, dynamic>?;
+          splitWithNames[uid] = userData?['displayName'] as String? ?? uid.substring(0, 8);
+        } catch (_) {
+          splitWithNames[uid] = uid.substring(0, 8);
+        }
+      }
+    }
+
     final docRef = await _expensesRef(teamId).add({
       'description': description.trim(),
       'amount': amount,
@@ -33,6 +47,7 @@ class ExpenseService {
       'paidBy': _uid,
       'paidByName': _name ?? 'Unknown',
       'splitWith': splitWith ?? [],
+      'splitWithNames': splitWithNames, // uid → display name map
       'settled': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -64,9 +79,10 @@ class ExpenseService {
       if (data['settled'] == true) continue;
 
       final amount = (data['amount'] as num?)?.toDouble() ?? 0;
-      final paidBy = data['paidBy'] as String? ?? '';
       final paidByName = data['paidByName'] as String? ?? 'Unknown';
       final splitWith = List<String>.from(data['splitWith'] ?? []);
+      final splitWithNames = Map<String, String>.from(
+          (data['splitWithNames'] as Map<String, dynamic>?) ?? {});
 
       if (splitWith.isEmpty) continue;
 
@@ -77,8 +93,9 @@ class ExpenseService {
 
       // Each person owes
       for (final uid in splitWith) {
-        final key = uid; // In real app, resolve to name
-        balances[key] = (balances[key] ?? 0) - perPerson;
+        // Use resolved name from map, fall back to short UID
+        final name = splitWithNames[uid] ?? uid.substring(0, uid.length.clamp(0, 8));
+        balances[name] = (balances[name] ?? 0) - perPerson;
       }
     }
 
