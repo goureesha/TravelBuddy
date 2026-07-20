@@ -72,6 +72,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   DateTime? _trackStartTime;
   StreamSubscription<dynamic>? _trackGpsSub;
   double _trackDistanceKm = 0;
+  int? _lastGpsTimestamp; // for GPS noise filter speed calc
   String _trackElapsed = '00:00';
   Timer? _trackTimer;
 
@@ -1153,6 +1154,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _trackDistanceKm = 0;
       _trackElapsed = '00:00';
       _trackStartTime = DateTime.now();
+      _lastGpsTimestamp = null;
     });
 
     // UI sync timer — updates elapsed time every 2 seconds
@@ -1172,20 +1174,62 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     });
 
     // Always start foreground GPS stream for live trail rendering on the map
-    // (Background service handles when app is minimized, but foreground stream
-    // ensures the colored trail appears immediately)
+    // with GPS noise filtering to prevent zigzag/confused trails
     _trackGpsSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
+        distanceFilter: 15, // minimum 15m between points
       ),
     ).listen((pos) {
       if (!mounted || !_isLiveTracking) return;
       final newPoint = LatLng(pos.latitude, pos.longitude);
-      setState(() {
-        if (_trackPoints.isNotEmpty) {
-          _trackDistanceKm += _haversine(_trackPoints.last, newPoint);
+
+      // ── GPS Noise Filter ──────────────────────────────────
+      // 1. Reject inaccurate readings (accuracy > 50m is too noisy)
+      if (pos.accuracy > 50) return;
+
+      if (_trackPoints.isNotEmpty) {
+        final lastPoint = _trackPoints.last;
+        final distM = _haversine(lastPoint, newPoint) * 1000; // km to meters
+
+        // 2. Reject tiny movements (< 5m = GPS jitter)
+        if (distM < 5) return;
+
+        // 3. Reject impossible speed jumps (> 150 km/h for normal travel)
+        //    This catches GPS "teleportation" glitches
+        final timeSinceLastMs = DateTime.now().millisecondsSinceEpoch -
+            (_lastGpsTimestamp ?? DateTime.now().millisecondsSinceEpoch);
+        if (timeSinceLastMs > 0) {
+          final speedKmh = (distM / 1000) / (timeSinceLastMs / 3600000);
+          if (speedKmh > 150) return; // impossibly fast = GPS glitch
         }
+
+        // 4. Reject backward jumps: if the new point is going backward
+        //    relative to the last 3 points' direction (anti-zigzag)
+        if (_trackPoints.length >= 3) {
+          final p1 = _trackPoints[_trackPoints.length - 2];
+          final p2 = lastPoint;
+          final forwardLat = p2.latitude - p1.latitude;
+          final forwardLng = p2.longitude - p1.longitude;
+          final newLat = newPoint.latitude - p2.latitude;
+          final newLng = newPoint.longitude - p2.longitude;
+          // Dot product: negative means going backward
+          final dot = forwardLat * newLat + forwardLng * newLng;
+          // Only reject sharp 180° reversals (dot < -0.5 of magnitude)
+          final magForward = (forwardLat * forwardLat + forwardLng * forwardLng);
+          final magNew = (newLat * newLat + newLng * newLng);
+          if (magForward > 0 && magNew > 0 && dot < 0) {
+            final cosAngle = dot / (sqrt(magForward) * sqrt(magNew));
+            if (cosAngle < -0.8) return; // sharp reversal = GPS bounce
+          }
+        }
+
+        _trackDistanceKm += distM / 1000;
+      }
+      // ── End Filter ────────────────────────────────────────
+
+      _lastGpsTimestamp = DateTime.now().millisecondsSinceEpoch;
+      setState(() {
         _trackPoints.add(newPoint);
         _myLocation = newPoint;
         _accuracy = pos.accuracy;
