@@ -408,6 +408,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
                           color: settled ? Colors.white30 : const Color(0xFF00BFA5),
                           fontSize: 16, fontWeight: FontWeight.bold,
                         )),
+                        if (isSplit) 
+                          Text('₹${(amt / (splitWith.length + 1)).toStringAsFixed(0)} each',
+                              style: GoogleFonts.inter(
+                                color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w500)),
                         if (settled)
                           Text('Settled', style: GoogleFonts.inter(
                               color: const Color(0xFF00BFA5), fontSize: 10, fontWeight: FontWeight.w600)),
@@ -438,8 +442,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Balances', style: GoogleFonts.inter(
-              color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+          Row(
+            children: [
+              Text('Balances', style: GoogleFonts.inter(
+                  color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text('Equal Split', style: GoogleFonts.inter(
+                  color: const Color(0xFF00BFA5), fontSize: 10, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('↑ gets back  ↓ owes', style: GoogleFonts.inter(
+              color: Colors.white24, fontSize: 10)),
           const SizedBox(height: 8),
           ...balances.entries.map((e) {
             final isPositive = e.value >= 0;
